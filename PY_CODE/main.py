@@ -172,6 +172,7 @@ class MainWidget(QMainWindow):
         self.originData = inputdata.copy()
         self.deData = inputdata.copy()
         self.model = PandasModel(self.originData)
+        #self.ui.INPUTtable.resizeColumnsToContents()
         self.ui.INPUTtable.setModel(self.model)
 
         rownum = len(self.originData.index)
@@ -272,8 +273,8 @@ class MainWidget(QMainWindow):
         print("dtypes",self.originData.dtypes)
         print("columns", self.originData.columns)
 
-        #데이터 유용성 데이터 부분
-        #한국인터넷진흥원, 개인정보 비식별 기술 경진대회 설명회 (n.p.: 한국인터넷진흥원, n.d.), 8.
+        """
+        #데이터 유용성 데이터 부분_코사인 유사도 계산
         #string형 제외
         for col in range(len(self.originData.columns)):
             #print(col)
@@ -317,13 +318,14 @@ class MainWidget(QMainWindow):
             usab.append(Ja_list[i] / (befMo_sqrt[i] * aftMo_sqrt[i]))
             usab_ave += usab[i]
 
-        print(usab)
+        #print(usab)
         usab_ave = usab_ave / len(origin)
         print(str(usab_ave)+"%")
 
         self.ui.tabWidget.setCurrentIndex(1)
-        self.ui.usab_txt.setText("Usability : " + str(usab_ave)+"%")
-
+        #self.ui.usab_txt.setText("Usability : " + str(usab_ave)+"%")
+        """
+        
         #tab2의 before table setItem
         BeforeDataModel = PandasModel(self.originData)
         self.ui.INPUTDATAtable.setModel(BeforeDataModel)
@@ -673,13 +675,10 @@ class NonIdentifierMethod(QMainWindow):
             self.ui.original.setHorizontalHeaderLabels(['values'])
 
             self.ui.categorical.setHorizontalHeaderLabels(['categorical'])
-            self.ui.categorical.setRowCount(len(self.original_uniq))
-
             self.original_uniq = list(self.original_uniq)
-            self.original_pop = self.original_uniq.copy()   # type: list
+              
             self.groupEle = []
-            self.str_groupEle = []
-            self.a = 0
+            self.groupEle_ui = []
 
             for v in range(len(self.original_uniq)):
                 self.ui.original.setItem(v,0,QTableWidgetItem(str(self.original_uniq[v])))
@@ -702,46 +701,39 @@ class NonIdentifierMethod(QMainWindow):
             self.ui.cancelButton.clicked.connect(self.ui.hide)
     
     def Ordering_Categorical(self):
-        orderValue = self.ui.orderText.toPlainText()
-        UsrChckVal = orderValue.split(',')
-        print(UsrChckVal)
-        UsrChckVal = [int (i) for i in UsrChckVal] #배열 원소 int형으로 변환
-
-
-        categoricalNum = len(self.original_pop) - len(UsrChckVal)
-        groupEle_tmp = []
-        
-        try:
-            if categoricalNum >= 0:
-                for c in range(len(UsrChckVal)):
-                    groupEle_tmp.append(self.original_uniq[UsrChckVal[c]-1])
-                    self.original_pop.remove(groupEle_tmp[c])
-
+        self.orderValue = int(self.ui.orderText.toPlainText()) 
+    
+        start = 0
+        end = len(self.original_uniq)
+        print("end len :", end)
+       
+        for i in range(start, end+self.orderValue, self.orderValue):
+            groupEle_tmp = self.original_uniq[start : start + self.orderValue]
+            if groupEle_tmp != []:
                 self.groupEle.append(groupEle_tmp)
-                groupEle_tmp = str(groupEle_tmp)
-                groupEle_tmp = groupEle_tmp.replace("'","")
-                self.str_groupEle.append(groupEle_tmp)
-                self.ui.categorical.setItem(self.a, 0, QTableWidgetItem(str(groupEle_tmp)))
-                print(len(self.groupEle[self.a]))
-                self.a = self.a + 1
-            
-        except ValueError:
-            QtWidgets.QMessageBox.about(self, 'Error','이미 범주화 처리가 된 요소입니다.')
-        pass
-      
+                self.groupEle_tui = str(groupEle_tmp).replace("'","")
+                self.groupEle_ui.append(self.groupEle_tui)
+                print(self.groupEle_tui)
+            start = start + self.orderValue
+
+        self.ui.categorical.setRowCount(len(self.groupEle_ui))
+
+        for cat in range(len(self.groupEle_ui)):
+            self.ui.categorical.setItem(cat, 0, QTableWidgetItem(self.groupEle_ui[cat]))
+        print(self.groupEle)
+
         self.ui.finishButton.clicked.connect(self.Ordering_Categorical_finish)
 
     def Ordering_Categorical_finish(self):
         self.after = self.before.copy()
-
         self.o_Categorical = []
-
-        for b in range(self.a):
+        
+        for b in range(len(self.groupEle_ui)):
             for z in range(len(self.groupEle[b])):
-                self.after.loc[self.after[self.SelectColumnName]==str((self.groupEle[b][z])), self.SelectColumnName] = str((self.str_groupEle[b]))
+                self.after.loc[self.after[self.SelectColumnName]==str((self.groupEle[b][z])), self.SelectColumnName] = str((self.groupEle_ui[b]))
                 for j in range(len(self.original_uniq)):
                     if self.original_uniq[j] == self.groupEle[b][z]:
-                        self.o_Categorical.append(str(self.original_uniq[j]) + "  " + str(self.str_groupEle[b]))
+                        self.o_Categorical.append(str(self.original_uniq[j]) + "  " + str(self.groupEle_ui[b]))
         self.finishButton("순위 변수 범주화")
 
     def Intervals_Categorical(self):
