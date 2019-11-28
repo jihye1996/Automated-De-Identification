@@ -1,57 +1,31 @@
+import numpy as np
 
 #swap(교환기법)
-def Swap(self, dataframe, swap_list):  #데이터프레임, 바꾸고 싶은 값 리스트 
-
-    data = dataframe.copy()
-
-    """유니크 값 추출 후 테이블에 저장"""
-    print(data.head())
-    uniqueIndex = data[data.columns[0]].unique().tolist()
-    uniqueIndex.sort()
+def Swap(dataframe, origin_list, swap_list):  #데이터프레임, 바꾸고 싶은 값 리스트 
 
     """값 변경"""
-    for i in range(len(uniqueIndex)):
-        data.loc[data[data.columns[0]]==uniqueIndex[i], data.columns[0]] = swap_list[i]     
-    return data
+    for i in range(len(origin_list)):
+        dataframe.loc[dataframe[dataframe.columns[0]]==origin_list[i], dataframe.columns[0]] = swap_list[i]     
+    return dataframe
 
 #shuffle(재배열)        
-def Shuffle(self, dataframe, number):  #데이터프레임, 셔플횟수
-    try:  #숫자만 입력, 그 외 값은 예외처리
-        number = int(number)
-        if(number<1):
-            number/0
-    except Exception:
-        print('Error','Input can only be a number')
-    pass
-
-    data = dataframe.copy()
-
+def Shuffle(dataframe, number):  #데이터프레임, 셔플횟수
     for _ in range(number):
-        data[data.columns[0]] = np.random.permutation(data[data.columns[0]].values)
-
-    return data
+        dataframe[dataframe.columns[0]] = np.random.permutation(dataframe[dataframe.columns[0]].values)
+    return dataframe
 
 #rounding(라운딩)
-def Rounding(self, dataframe, r_index, r_level): #데이터프레임, 라운딩방법, 자리수     
-
-    try:  #숫자만 입력, 그 외 값은 예외처리
-        r_level = int(r_level)
-        if(r_level<1):
-            r_level/0
-    except Exception:
-        print('Error','Input can only be a level')
-    pass
+def Rounding(self, dataframe, r_index, r_level, randomN=0): #데이터프레임, 라운딩방법, 자리수     
 
     data = dataframe.copy()
 
-    if(r_index == 0):# 올림
+    if(r_index == "올림"):# 올림
         data[data.columns[0]] = ((data[data.columns[0]]+9*pow(10, r_level-1))//pow(10, r_level))*pow(10, r_level) # change number, up
-    elif(r_index == 1):#내림
+    elif(r_index == "내림"):#내림
         data[data.columns[0]] = (data[data.columns[0]]//pow(10, r_level))*pow(10, r_level) # change number, down
-    elif(r_index == 2):#5를 기준으로 up down, 반올림
+    elif(r_index == "반올림"):#5를 기준으로 up down, 반올림
         data[data.columns[0]] = ((data[data.columns[0]]+5*pow(10, r_level-1))//pow(10, r_level))*pow(10, r_level) # change number, 4down, 5up
-    elif(r_index == 3): #random 값을 기준으로 up down
-        randomN = random.randint(0,9)
+    elif(r_index == "랜덤"): #random 값을 기준으로 up down
         data[data.columns[0]] = ((data[data.columns[0]]+(10-randomN))//pow(10, r_level))*pow(10, r_level) # change number, 4down, 5up
             
     return data
