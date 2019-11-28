@@ -55,45 +55,25 @@ self.Final_Output: run 함수에서 사용
 class MainWidget(QMainWindow):
     """
     TODO: 
-    1. 메인 윈도우에서 데이터타입 바꾸기 구현 필요
-    2. 식별자 구분이 잘 안되므로 수정 필요
-    3. 비식별화 함수 추가 필요: shuffle, rounding, 통계값, 교환 완성,마스킹, 삭제, 범주화 코딩완료 -> ok
-     3-1. 통계값에서 datetime, string 이상치 ??
-     3-2. 통계값: 회귀분석 보류, Part(group)은 여러번 적용되도록 수정필요, int형 데이터만 처리 가능
-     3-3. 교환에서 외부 파일 import 기능 없음(필요시 코딩) -> 확인
-    4. 프라이버시 모델 구현하기(익명성, 다양성, 근접성)  ***근접성 구현 필요***
-     4-1. 익명성, 다양성 기능 구현 완료 => 익명성은 한번만 사용하도록 수정 필요
-     4-2. 프라이버시 모델 UI 없음 -> 확인
-     4-3. 식별자도 그룹화해야하는 것인지? no
-    5. 결측치 처리 
-     5-1. 처리방법: 평균 중앙값 최빈값 삭제 -> ok
-     5-2. 예측값(회귀분석, k-군집분류 등) 보류, 현재 시계열 데이터 처리 불가
-     5-3. 데이터 타입별로 처리 필요, 현재 문자열로 mean, median 사용시 버그 발생
-    6. run 함수 구현 필요: run 누르면 tab2의 결과창 보여주기 -> OK
-    7. compare graph 및 지표 결과 구현 필요
-     7-2. 재식별 리스크 그래프 필요 -> ok 
-     7-1. 데이터 손실 및 유용성 그래프 필요 -> ok
-     7-2. before, after 데이터 상관관계 변화도 나중에 구현 예정
-    8. 라디오 버튼 밑에 식별자, 비식별자, 민감정보, 일반정보 보여주기 -> ok
-    9. 비식별 적용 함수 테이블에 보여주기 -> ok
-     9-1. 현재 비식별화 기법 최대 1개만 적용 가능
-    10. MainWindow 계속 보이게 바꾸기 -> ok
-    11. 속도 개선
-     - Qtablewidget은 custom model 적용이 불가하기 때문에 Qtableview로 수정필요
-     - Import 할 때 QtableWidget -> QtableView로 수정 -> ok
-     - 분석탭에 INPUTtable, 비식별탭의 INPUTDATAtable, OUTPUTDATAtable -> QtableView로 수정
-
-    기타: 
-    - statusbar에 컬럼 및 행 정보 보여주기  -> ok
-    - SaveFileDialog 함수 수정 필요(tab2의 output 데이터를 파일로 저장하도록) ->Final_Output or tab2_output으로 저장, ok
-    - 사용하는 data type: int, string, datetime **확인 요청**
-    - newwindow 사이즈 fix 및 통일 
-    - 데이터 타입, 데이터가 없어서 생기는 에러 예외처리 해주기 **은근 많음**
-    - NonIdentifierMethod 클래스에 있는 전역변수 self로 바꿔주기 -> ok
-    - 몇몇개의 tablewidget NoEditTriggers 설정 필요 (qt designer or 코드로 설정)
-    ** 그 외 TODO 추가해주세요. **
-
-    - ModifyWin에서 완료버튼 삭제하기
+    0. 비식별 클래스 / level 수정
+        0. Swap(교환)
+        param: 0 or 1, swap_values[]
+        1. Shuffle(재배열: 랜덤하게 섞기)
+        param: 0 or 1, numbsfer
+        2. Suppression(범주화: 이항변수화, 이산형화)
+        param: ??, ??, ??, ??
+        3. Masking or Remove(마스킹 혹은 삭제)
+        param: level
+        4. Aggregation(통계값처리: 평균, 최빈, 최소, 최대)
+        param: 통계처리인덱스(3), ??, ??, ??
+        5. Rounding(라운딩: 올림, 내림, 반올림) #랜덤라운딩 삭제
+        param: 라운딩기법인덱스(string), level, RandomN=0
+    1. level별 처리
+    2. 모델 결과
+    3. progress 처리
+    4. 결과 UI 및 구성 처리
+    5. 기타
+     - ModifyWin에서 완료버튼 수정하기
     """
     
     def __init__(self):
