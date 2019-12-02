@@ -15,23 +15,22 @@ def Shuffle(dataframe, number):  #데이터프레임, 셔플횟수
     return dataframe
 
 #rounding(라운딩)
-def Rounding(self, dataframe, r_index, r_level, randomN=0): #데이터프레임, 라운딩방법, 자리수     
-
-    data = dataframe.copy()
-
+def Rounding(dataframe, r_index=0, r_level=0, randomN=0): #데이터프레임, 라운딩방법, 자리수   
+    dataframe = dataframe.copy()
     if(r_index == "올림"):# 올림
-        data[data.columns[0]] = ((data[data.columns[0]]+9*pow(10, r_level-1))//pow(10, r_level))*pow(10, r_level) # change number, up
+        dataframe[dataframe.columns[0]] = ((dataframe[dataframe.columns[0]]+9*pow(10, r_level-1))//pow(10, r_level))*pow(10, r_level) # change number, up
     elif(r_index == "내림"):#내림
-        data[data.columns[0]] = (data[data.columns[0]]//pow(10, r_level))*pow(10, r_level) # change number, down
+        dataframe[dataframe.columns[0]] = (dataframe[dataframe.columns[0]]//pow(10, r_level))*pow(10, r_level) # change number, down
     elif(r_index == "반올림"):#5를 기준으로 up down, 반올림
-        data[data.columns[0]] = ((data[data.columns[0]]+5*pow(10, r_level-1))//pow(10, r_level))*pow(10, r_level) # change number, 4down, 5up
+        dataframe[dataframe.columns[0]] = ((dataframe[dataframe.columns[0]]+5*pow(10, r_level-1))//pow(10, r_level))*pow(10, r_level) # change number, 4down, 5up
     elif(r_index == "랜덤"): #random 값을 기준으로 up down
-        data[data.columns[0]] = ((data[data.columns[0]]+(10-randomN))//pow(10, r_level))*pow(10, r_level) # change number, 4down, 5up
+        dataframe[dataframe.columns[0]] = ((dataframe[dataframe.columns[0]]+(10-randomN))//pow(10, r_level))*pow(10, r_level) # change number, 4down, 5up
             
-    return data
+    return dataframe
+  
 
 #masking(마스킹)
-def Masking(self, dataframe, m_index, m_level):      #데이터프레임['컬럼명'].to_frame(), index, level
+def Masking(dataframe, m_index, m_level):      #데이터프레임['컬럼명'].to_frame(), index, level
 
     try:  #숫자만 입력, 그 외 값은 예외처리
         m_level = int(m_level)
@@ -106,21 +105,9 @@ def Masking(self, dataframe, m_index, m_level):      #데이터프레임['컬럼
     return afterdata
 
 #categorical(범주화)
-def Categorical(self, dataframe, c_index):
+def Categorical(dataframe, c_index):
     #need to implement
     return dataframe;
 
 #Aggregation(통계처리)
-def Aggregation(self, dataframe, index, method):
-
-    try:  #숫자만 입력, 그 외 값은 예외처리
-        method = int(method)
-        if(method<1):
-            method/0
-    except Exception:
-        print('Error','Input can only be a method')
-    pass
-
-    data = dataframe.copy()
-
-    return data
+def Aggregation(dataframe, index, method):
