@@ -18,8 +18,15 @@ plt.rc('axes', unicode_minus=False) #한글 깨짐 방지
 sys.path.append("./UI") # insert your path
 sys.path.append("./PY_CODE")
 
-import DeIdentifier
 
+import DeIdentifier
+"""
+TYPE: 0이면 정수, 아니면 정수
+if(mainWin.ui.typeTable.item(self.SelectColumn, 1).text() != 'int64'): #int64만 수치데이터 method 사용
+
+//seletCol: 사용자가 선택한 컬럼
+
+"""
 class NonIdentifierWin(QMainWindow):
     def __init__(self, mainWindow, dataframe, type):
         super().__init__()
