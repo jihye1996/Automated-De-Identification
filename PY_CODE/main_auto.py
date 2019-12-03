@@ -37,8 +37,8 @@ import mplwidget
 from PandasModel import PandasModel # for table model setting
 #import window class
 from ImportDataWin import ImportDataWindow
-from PrivacyModel import PrivacyModel
 from NonIdentifierWin import NonIdentifierWin
+import DeIdentifier
 
 
 """
@@ -242,9 +242,60 @@ class MainWidget(QMainWindow):
         self.ui.privacyTable.removeRow(self.ui.privacyTable.currentRow())
 
     def run(self):
-        deData = self.originData.copy()
-        result = list(product(*self.ApplyMethod.values()))
-        print(result)
+        cases = list(product(*self.ApplyMethod.values()))
+        del cases[0] #0은 원본데이터와 동일하므로 삭제
+        print(len(cases))
+
+        #준식별자만 추출
+        qd_list = []
+        flag = False
+        if self.ui.privacyTable.rowCount()>0:
+            flag = True
+            for i in range(mainwindow.ui.typeTable.rowCount()): #준식별자 컬럼만 리스트에 삽입
+                if(mainwindow.ui.typeTable.item(i,2).text() == '준식별자'):
+                    qd_list.append(mainwindow.ui.typeTable.item(i, 0).text())
+                    print(qd_list)
+
+        start = time.time()
+        for i in range(len(cases)):
+            deData = self.originData.copy()
+            for j in range(len(cases[i])):
+                if cases[i][j][2] != 0 :
+                    if cases[i][j][1] == "swap":
+                        deData[str(cases[i][j][0])] = DeIdentifier.Swap(deData[str(cases[i][j][0])].to_frame(), cases[i][j][2])
+                        #print("swap: ", str(cases[i][j][0]))
+                        #print("swap: ", deData[str(cases[i][j][0])])
+                    elif cases[i][j][1] == "shuffle":
+                        deData[cases[i][j][0]] = DeIdentifier.Shuffle(deData[cases[i][j][0]].to_frame(), cases[i][j][2])
+                        #print("shuffle: ", str(cases[i][j][0]))
+                        #print("shuffle: ", deData[str(cases[i][j][0])])
+                    elif cases[i][j][1] == "rounding":
+                        deData[cases[i][j][0]] = DeIdentifier.Rounding(deData[cases[i][j][0]].to_frame(), cases[i][j][2], cases[i][j][3])
+                        #print("rounding: ", str(cases[i][j][0]))
+                        #print("rouding: ", deData[str(cases[i][j][0])])
+                    elif cases[i][j][1] == "aggregation":
+                        deData[cases[i][j][0]] = DeIdentifier.Aggregation(deData[cases[i][j][0]].to_frame(), cases[i][j][2], cases[i][j][3])
+                        #print("aggregation: ", str(cases[i][j][0]))
+                        #print("aggregation: ", deData[str(cases[i][j][0])])
+            
+            #privacy model 적용
+            """
+            if flag == True: #프라이버시 모델 존재하면!!!
+                for r in range(self.ui.privacyTable.rowCount()):
+                    widget = self.ui.privacyTable.cellWidget(r, 0)
+                    if isinstance(widget, QComboBox):
+                        current_value = widget.currentText()
+                        if(current_value == 'K'):
+                            number = self.ui.privacyTable.item(r, 1).text()
+                            deData = DeIdentifier.K_anonymity(deData, qd_list, int(number))
+                        elif(current_value == 'L'):
+                            number = self.ui.privacyTable.item(r, 1).text()
+                            columnName = self.ui.privacyTable.cellWidget(r, 2).currentText()
+                            deData = DeIdentifier.L_diversity(deData, qd_list, number, columnName)
+            """
+
+        print("time", time.time()-start)
+
         """
         self.privacy = PrivacyModel(self)
         self.Final_Output = deData.copy() #비식별화만 된 데이트를 프라이버시 모델에 입력
@@ -419,7 +470,7 @@ class MainWidget(QMainWindow):
         widget.canvas.axes.set_ylim([0, max])
         widget.canvas.draw()
 
-
+    #TODO: 수정필요!!!!!!!
     def SaveFileDialog(self):
         options = QFileDialog.Options()
         self.fileName, _ = QFileDialog.getSaveFileName(self,"QFileDialog.getOpenFileName()", "",
