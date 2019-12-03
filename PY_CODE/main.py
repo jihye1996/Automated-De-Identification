@@ -537,8 +537,8 @@ class NonIdentifierMethod(QMainWindow):
             self.m_index = self.ui.m_comboBox.currentIndexChanged.connect(self.usedbyMasking)
 
             self.before = mainwindow.originData[self.SelectColumnName].to_frame() #pull one column and convert list
-            rownum = len(self.before.index) # get row count
-            colnum = len(self.before.columns) # get column count
+            #rownum = len(self.before.index) # get row count
+            #colnum = len(self.before.columns) # get column count
 
             self.ui.nextButton.clicked.connect(self.Masking)
             self.ui.cancelButton.clicked.connect(self.ui.hide)
@@ -769,61 +769,53 @@ class NonIdentifierMethod(QMainWindow):
         before_uniq = self.before[self.before.columns[0]].unique()
         
         unique_len = []
-        mask = []
         after_uniq = before_uniq.copy()
 
         for i in before_uniq:
             unique_len.append(len(i)-1)
 
+        max_len = max(unique_len)
+
         for j in range(self.rownum): #rendering data (inputtable of Tab1)
-            for u in range(len(before_uniq)):
+            for idx,i in enumerate(unique_len):
                 if(self.m_index == 0): # * masking
-                    if self.m_level > unique_len[u]:
-                        t_lev = unique_len[u]+1
-                        mask.append(after_uniq[u][unique_len[u]-(t_lev-1):unique_len[u]+1].replace(after_uniq[u][unique_len[u]-(t_lev-1):unique_len[u]+1], "*"*t_lev))
-                        after_uniq[u] = after_uniq[u][0:unique_len[u]-(t_lev-1)]
-                        after_uniq[u] = after_uniq[u]+mask[u]
-                        if self.before[self.before.columns[0]][j] == before_uniq[u]: # self.after[self.after.columns[0]][j] == before_uniq[i]:
-                            self.after[self.after.columns[0]][j] = str(self.after[self.after.columns[0]][j]).replace(before_uniq[u], after_uniq[u])
-                    
+                    if i < max_len:
+                        while i != max_len:
+                            after_uniq[idx] = after_uniq[idx] + "*"
+                            i += 1
                     else:
-                        mask.append(after_uniq[u][unique_len[u]-(self.m_level-1):unique_len[u]+1].replace(after_uniq[u][unique_len[u]-(self.m_level-1):unique_len[u]+1], "*"*self.m_level))
-                        after_uniq[u] = after_uniq[u][0:unique_len[u]-(self.m_level-1)]
-                        after_uniq[u] = after_uniq[u]+mask[u]
-                        if self.before[self.before.columns[0]][j] == before_uniq[u]: # self.after[self.after.columns[0]][j] == before_uniq[i]:
-                            self.after[self.after.columns[0]][j] = str(self.after[self.after.columns[0]][j]).replace(before_uniq[u], after_uniq[u])
-                    
+                        after_uniq[idx] = after_uniq[idx][:i] + "*"
+
+                    after_uniq[idx] = after_uniq[idx][:max_len-self.m_level+1] + "*"*self.m_level
+
+                    if self.before[self.before.columns[0]][j] == before_uniq[idx]:
+                        self.after[self.after.columns[0]][j] = str(self.after[self.after.columns[0]][j]).replace(before_uniq[idx], after_uniq[idx])
+
                 elif(self.m_index == 1): # 0 masking
-                    if self.m_level > unique_len[u]:
-                        t_lev = unique_len[u]+1
-                        mask.append(after_uniq[u][unique_len[u]-(t_lev-1):unique_len[u]+1].replace(after_uniq[u][unique_len[u]-(t_lev-1):unique_len[u]+1], "0"*t_lev))
-                        after_uniq[u] = after_uniq[u][0:unique_len[u]-(t_lev-1)]
-                        after_uniq[u] = after_uniq[u]+mask[u]
-                        if self.before[self.before.columns[0]][j] == before_uniq[u]: # self.after[self.after.columns[0]][j] == before_uniq[i]:
-                            self.after[self.after.columns[0]][j] = str(self.after[self.after.columns[0]][j]).replace(before_uniq[u], after_uniq[u])
-                    
+                    if i < max_len:
+                        while i != max_len:
+                            after_uniq[idx] = after_uniq[idx] + "0"
+                            i += 1
                     else:
-                        mask.append(after_uniq[u][unique_len[u]-(self.m_level-1):unique_len[u]+1].replace(after_uniq[u][unique_len[u]-(self.m_level-1):unique_len[u]+1], "0"*self.m_level))
-                        after_uniq[u] = after_uniq[u][0:unique_len[u]-(self.m_level-1)]
-                        after_uniq[u] = after_uniq[u]+mask[u]
-                        if self.before[self.before.columns[0]][j] == before_uniq[u]: # self.after[self.after.columns[0]][j] == before_uniq[i]:
-                            self.after[self.after.columns[0]][j] = str(self.after[self.after.columns[0]][j]).replace(before_uniq[u], after_uniq[u])
-                    
-                elif(self.m_index == 2): # remove
-                    if self.m_level > unique_len[u]:
-                        t_lev = unique_len[u]+1
-                        mask.append(after_uniq[u][unique_len[u]-(t_lev-1):unique_len[u]+1].replace(after_uniq[u][unique_len[u]-(t_lev-1):unique_len[u]+1], " "*t_lev))
-                        after_uniq[u] = after_uniq[u][0:unique_len[u]-(t_lev-1)]
-                        after_uniq[u] = after_uniq[u]+mask[u]
-                        if self.before[self.before.columns[0]][j] == before_uniq[u]: # self.after[self.after.columns[0]][j] == before_uniq[i]:
-                            self.after[self.after.columns[0]][j] = str(self.after[self.after.columns[0]][j]).replace(before_uniq[u], after_uniq[u])
-                    
+                        after_uniq[idx] = after_uniq[idx][:i] + "0"
+
+                    after_uniq[idx] = after_uniq[idx][:max_len-self.m_level+1] + "0"*self.m_level
+
+                    if self.before[self.before.columns[0]][j] == before_uniq[idx]:
+                        self.after[self.after.columns[0]][j] = str(self.after[self.after.columns[0]][j]).replace(before_uniq[idx], after_uniq[idx])
+
+                elif(self.m_index == 2): # ( ) masking
+                    if i < max_len:
+                        while i != max_len:
+                            after_uniq[idx] = after_uniq[idx] + " "
+                            i += 1
                     else:
-                        mask.append(after_uniq[u][unique_len[u]-(self.m_level-1):unique_len[u]+1].replace(after_uniq[u][unique_len[u]-(self.m_level-1):unique_len[u]+1], " "*self.m_level))
-                        after_uniq[u] = after_uniq[u][0:unique_len[u]-(self.m_level-1)]
-                        after_uniq[u] = after_uniq[u]+mask[u]
-                        if self.before[self.before.columns[0]][j] == before_uniq[u]: # self.after[self.after.columns[0]][j] == before_uniq[i]:
-                            self.after[self.after.columns[0]][j] = str(self.after[self.after.columns[0]][j]).replace(before_uniq[u], after_uniq[u])
+                        after_uniq[idx] = after_uniq[idx][:i] + " "
+
+                    after_uniq[idx] = after_uniq[idx][:max_len-self.m_level+1] + " "*self.m_level
+
+                    if self.before[self.before.columns[0]][j] == before_uniq[idx]:
+                        self.after[self.after.columns[0]][j] = str(self.after[self.after.columns[0]][j]).replace(before_uniq[idx], after_uniq[idx])   
             
             self.ui.maskingLevel.setItem(j,0,QTableWidgetItem(str(self.before[self.before.columns[0]][j])))
             self.ui.maskingLevel.setItem(j,1,QTableWidgetItem((self.after[self.after.columns[0]][j])))        
