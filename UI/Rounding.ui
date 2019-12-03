@@ -182,7 +182,7 @@
     </property>
     <widget class="QWidget" name="tab1">
      <attribute name="title">
-      <string>Tab 1</string>
+      <string>Levels</string>
      </attribute>
      <layout class="QHBoxLayout" name="horizontalLayout_3">
       <item>
@@ -292,7 +292,7 @@
     </widget>
     <widget class="QWidget" name="tab2">
      <attribute name="title">
-      <string>Tab 2</string>
+      <string>결과</string>
      </attribute>
      <layout class="QGridLayout" name="gridLayout_4">
       <item row="0" column="0">
