@@ -4,12 +4,19 @@ import os
 import sys
 import time
 import pandas as pd
+import numpy as np
 from PyQt5.QtCore import pyqtSlot, Qt
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import QIcon
 from PyQt5 import uic
 from PyQt5 import QtWidgets
 
+# for box or other graphs
+import seaborn as sns
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_qt5agg import (NavigationToolbar2QT as NavigationToolbar,
+                                                FigureCanvasQTAgg as FigureCanvas)
+                                                
 import matplotlib.pyplot as plt
 plt.rc('font', family='Malgun Gothic') #한글 깨짐 방지
 plt.rc('axes', unicode_minus=False) #한글 깨짐 방지
@@ -23,8 +30,6 @@ import DeIdentifier
 """
 TYPE: 0이면 정수, 아니면 정수
 if(mainWin.ui.typeTable.item(self.SelectColumn, 1).text() != 'int64'): #int64만 수치데이터 method 사용
-
-//seletCol: 사용자가 선택한 컬럼
 
 """
 class NonIdentifierWin(QMainWindow):
@@ -114,7 +119,7 @@ class NonIdentifierWin(QMainWindow):
             self.m_level = self.ui.maskingText.textChanged.connect(self.usedbyMasking)
             self.m_index = self.ui.m_comboBox.currentIndexChanged.connect(self.usedbyMasking)
 
-            self.before = mainwindow.originData[self.SelectColumnName].to_frame() #pull one column and convert list
+            self.before = self.mainWin.originData[self.SelectColumnName].to_frame() #pull one column and convert list
             rownum = len(self.before.index) # get row count
             colnum = len(self.before.columns) # get column count
 
@@ -125,7 +130,6 @@ class NonIdentifierWin(QMainWindow):
         elif(self.ui.Method5.isChecked()): # 통계값 처리 UI 및 박스 그래프 보여주기
             self.ui = uic.loadUi("./UI/Aggregation.ui") #insert your UI path
             self.ui.show()
-            self.RemoveFlag = False
 
             #Rendering before box plot start
             self.beforeFig = plt.Figure()
@@ -134,7 +138,7 @@ class NonIdentifierWin(QMainWindow):
             
             self.ax1 = self.beforeFig.add_subplot(1, 1, 1)  # fig를 1행 1칸으로 나누어 1칸안에 넣기
             self.beforeCanvas.draw() 
-            self.AggregationbeforeGraph(mainwindow.originData[self.SelectColumnName])
+            self.AggregationbeforeGraph(self.before[self.before.columns[0]])
             #Rendering before box plot end
 
             #Rendering after box plot start
@@ -149,9 +153,11 @@ class NonIdentifierWin(QMainWindow):
             self.ui.columns.hide()
             self.ui.group.hide()
             self.ui.AllPart.currentIndexChanged.connect(self.ComboBoxSetting)
-            self.ui.columns.currentIndexChanged.connect(self.ColumnComboSetting)
+            #self.ui.columns.currentIndexChanged.connect(self.ColumnComboSetting) #don't use anymore, but don't remove
 
-            self.ui.runButton.clicked.connect(self.Outlier)
+            self.ui.runButton.clicked.connect(self.Aggregation)
+            self.ui.addButton.clicked.connect(self.AggregationAdd)
+            self.ui.delButton.clicked.connect(lambda: self.delLevel(self.ui.LevelTable))
             self.ui.cancelButton.clicked.connect(self.ui.hide)
             self.ui.backButton.clicked.connect(self.InitUI)
         
@@ -217,7 +223,7 @@ class NonIdentifierWin(QMainWindow):
         del self.after
     #Shuffle() end
 
-
+    """마스킹, 범주화"""
     def usedbyMasking(self):
         self.m_level = self.ui.maskingText.toPlainText()
         self.m_index = self.ui.m_comboBox.currentIndex()
@@ -228,9 +234,6 @@ class NonIdentifierWin(QMainWindow):
         except Exception:
             QtWidgets.QMessageBox.about(self, 'Error','Input can only be a number')
         pass
-
-
-
 
     def Categorical_next(self):
 
@@ -431,35 +434,23 @@ class NonIdentifierWin(QMainWindow):
         self.ui.finishButton.clicked.connect(lambda: self.finishButton("마스킹"))
         self.ui.cancelButton.clicked.connect(self.ui.hide)
 
-
+    """마스킹, 범주화 끝"""
 
     #통계값 aggregation start
-    def Outlier(self):
+    def Aggregation(self):
         self.after = self.before.copy() 
         self.AggregationLevel = ""
 
-        #reference: https://stackoverflow.com/questions/23199796/detect-and-exclude-outliers-in-pandas-data-frame/31502974#31502974
-        q1 = self.after[self.SelectColumnName].quantile(0.25) #calculate q1
-        q3 = self.after[self.SelectColumnName].quantile(0.75) #calculate q3
-        iqr = q3-q1 #Interquartile range
-        fence_low  = q1-1.5*iqr 
-        fence_high = q3+1.5*iqr
-
-        #change 4분위수
-        index = self.ui.AllPart.currentIndex()
-        
-        normal = self.after.loc[(self.after[self.SelectColumnName] >= fence_low) & (self.after[self.SelectColumnName] <= fence_high)] #select not outlier data(normal data)
-        
-        if index == 0:
-            self.after = self.AllAggregation(self.after) #모든 값을 총계나 평균으로 변경            
-            self.AggregationafterGraph(self.after[self.SelectColumnName]) #Rendering after box plot
-            self.AggregationLevel = self.AggregationLevel + "ALL(" + str(self.ui.function.currentText()) + ")"
-        elif index == 1:
-            self.after = self.partAggregation(normal, self.after, fence_low, fence_high)  #이상치 값만 처리
-            self.AggregationafterGraph(self.after[self.SelectColumnName]) #Rendering after box plot
-            self.AggregationLevel = self.AggregationLevel + "PART(" + str(self.ui.function.currentText()) + ")"
+        #통계처리 방법 선택
+        index = self.ui.AllPart.currentText() #대체 범위 선택
+        method = self.ui.function.currentText() #대체 방법 선택
+        self.after = DeIdentifier.Aggregation(self.after, index, method) #실제 데이터 연산 함수
+        self.AggregationafterGraph(self.after[self.after.columns[0]]) #Rendering after box plot
+        self.ui.finishButton.clicked.connect(lambda: self.finishButton("aggregation"))
+        """
+        현재 미사용
         elif index == 2:
-            self.after = mainwindow.originData.copy() 
+            self.after = self.mainWin.originData.copy() 
             self.after = self.partGroupAggregation(self.after)
             base = str(self.ui.columns.currentText())
             self.AggregationafterGraph(self.after.groupby(base)[self.SelectColumnName].apply(list))
@@ -468,149 +459,75 @@ class NonIdentifierWin(QMainWindow):
                                     str(self.ui.group.currentText()) +
                                     " of " +
                                     str(self.ui.columns.currentText()))
-
-            
-
-        """ float로 변경될 경우, 반올림 후 int로 재변환"""
-        self.after[self.SelectColumnName]=round(self.after[self.SelectColumnName],0)
-        self.after[self.SelectColumnName] = self.after[self.SelectColumnName].astype(int)
-
-        if(self.RemoveFlag == True):
-            self.ui.finishButton.clicked.connect(lambda: self.finishButton("통계 처리 삭제"))
-        else:
-            self.ui.finishButton.clicked.connect(lambda: self.finishButton("통계 처리"))
+        """
     #통계값 aggregation end
 
-    #aggregation ui에 있는 comboBox에 값 넣기
+        
+    """
+    aggregation ui에 있는 comboBox에 값 넣기
+    ComboBoxSetting: AllPart ui combobox setting(All, Unique, group)
+    ColumnComboSetting: Allpart가 group일 경우 combobox setting
+    """
     def ComboBoxSetting(self, index):
+        self.afterFig.clear() #canvas clear
         if index == 0: #한 컬럼만 처리 + 모두 하나의 값으로 통일
             self.ui.columns.hide()
             self.ui.group.hide()
             self.ui.function.clear() 
             self.ui.function.addItem("총합")
-            self.ui.function.addItem("평균값")
-            self.AggregationbeforeGraph(mainwindow.originData[self.SelectColumnName])
+            self.ui.function.addItem("평균")
+            self.AggregationbeforeGraph(self.before[self.before.columns[0]])
         elif index == 1: #한 컬럼만 처리 + 이상치만 처리
             self.ui.columns.hide()
             self.ui.group.hide()
             self.ui.function.clear() 
-            self.ui.function.addItem("평균값")
-            self.ui.function.addItem("최대값")
-            self.ui.function.addItem("최소값")
-            self.ui.function.addItem("중앙값")
-            self.ui.function.addItem("최빈값")
+            self.ui.function.addItem("평균")
+            self.ui.function.addItem("최대")
+            self.ui.function.addItem("최소")
+            self.ui.function.addItem("중앙")
+            self.ui.function.addItem("최빈")
             self.ui.function.addItem("삭제")
-            self.AggregationbeforeGraph(mainwindow.originData[self.SelectColumnName])
+            self.AggregationbeforeGraph(self.before[self.before.columns[0]])
+        """
+        현재 미사용
         elif index == 2: #한 컬럼에서 일부만 처리 + 이상치만 처리
+            self.ui.group.show()
+            self.ui.group.clear() #선택한 컬럼에 유니크한 값만 뽑아서 comboBox에 추가
             self.ui.function.clear() 
             self.ui.function.addItem("평균값")
             self.ui.function.addItem("중앙값")
             self.ui.function.addItem("최빈값")
             self.ui.function.addItem("삭제")
             
-            self.ui.columns.show() #컬럼 이름 넣기(현재 선택한 컬럼 제외)
             self.ui.columns.clear()
-            for i in mainwindow.originData.columns:
+            self.ui.columns.show() #컬럼 이름 넣기(현재 선택한 컬럼 제외)
+            for i in self.mainWin.originData.columns:
                 if i != self.SelectColumnName:
                     self.ui.columns.addItem(i)
 
-            self.ui.group.show()
-            self.ui.group.clear() #선택한 컬럼에 유니크한 값만 뽑아서 comboBox에 추가
-            array = mainwindow.originData[str(self.ui.columns.currentText())].unique()
+            array = self.mainWin.originData[str(self.ui.columns.currentText())].unique()
             array.sort()
             for i in range(len(array)):
                 self.ui.group.addItem(str(array[i]))
-
-
+        
     def ColumnComboSetting(self): # 컬럼별(그룹)일 때 group combobox 세팅
         base = str(self.ui.columns.currentText())
         if base:
-            self.AggregationbeforeGraph(mainwindow.originData.sort_values([self.SelectColumnName]).groupby(base)[self.SelectColumnName].apply(list))
-
-            self.ui.group.show()
-            self.ui.group.clear() #선택한 컬럼에 유니크한 값만 뽑아서 comboBox에 추가
-            array = mainwindow.originData[str(self.ui.columns.currentText())].unique()
+            self.AggregationbeforeGraph(self.mainWin.originData.sort_values([self.SelectColumnName]).groupby(base)[self.SelectColumnName].apply(list))
+            array = self.mainWin.originData[str(self.ui.columns.currentText())].unique()
             array.sort()
             for i in range(len(array)):
                 self.ui.group.addItem(str(array[i]))
+    """
+    def AggregationAdd(self):
+        index = self.ui.AllPart.currentText() #대체 범위 선택
+        method = self.ui.function.currentText() #대체 방법 선택
+        rowPosition = self.ui.LevelTable.rowCount()
+        self.ui.LevelTable.insertRow(rowPosition)
+        self.ui.LevelTable.setItem(rowPosition, 0, QTableWidgetItem(index))
+        self.ui.LevelTable.setItem(rowPosition, 1, QTableWidgetItem(method))
 
-
-    #모든 값을 총계나 평균으로 변경
-    def AllAggregation(self, Outlier):
-        self.RemoveFlag = False
-        index = self.ui.function.currentIndex() 
-        if index == 0: #총합으로 통일
-            Outlier[self.SelectColumnName] = Outlier[self.SelectColumnName].sum()
-        elif index == 1: #평균으로 통일
-            Outlier[self.SelectColumnName] = Outlier[self.SelectColumnName].mean()
-        return Outlier
-
-    #이상치 값만 처리
-    def partAggregation(self, Normal, Outlier, low, high):
-        index = self.ui.function.currentIndex() 
-        if index == 0: #MEAN
-            self.RemoveFlag = False
-            Outlier.loc[(Outlier[self.SelectColumnName] < low) | (Outlier[self.SelectColumnName] > high)] = Normal[self.SelectColumnName].mean()
-        elif index == 1: #MAX
-            self.RemoveFlag = False
-            Outlier.loc[(Outlier[self.SelectColumnName] < low) | (Outlier[self.SelectColumnName] > high)] = Normal[self.SelectColumnName].max()
-        elif index == 2: #MIN
-            self.RemoveFlag = False
-            Outlier.loc[(Outlier[self.SelectColumnName] < low) | (Outlier[self.SelectColumnName] > high)] = Normal[self.SelectColumnName].min()
-        elif index == 3: #MEDIAN
-            self.RemoveFlag = False
-            Outlier.loc[(Outlier[self.SelectColumnName] < low) | (Outlier[self.SelectColumnName] > high)] = Normal[self.SelectColumnName].median()
-        elif index == 4: #MODE
-            self.RemoveFlag = False
-            mode = Normal[self.SelectColumnName].value_counts().idxmax() #최빈값
-            Outlier.loc[(Outlier[self.SelectColumnName] < low) | (Outlier[self.SelectColumnName] > high)] = mode
-        elif index == 5: #REMOVE
-            self.RemoveFlag = True
-            b_length = len(Outlier.index)
-            Outlier = Outlier.loc[(Outlier[self.SelectColumnName] >= low) & (Outlier[self.SelectColumnName] <= high)]
-            self.RemoveRowCount = b_length - len(Outlier.index)
-        return Outlier
-
-    #그룹화 후 이상치 값 선별 및 처리
-    def partGroupAggregation(self, result):
-        groupcol = str(self.ui.columns.currentText()) #그룹 기준 컬럼
-        groupvalue = str(self.ui.group.currentText())   #그룹 기준 값
-
-        Outlier = mainwindow.originData[mainwindow.originData[groupcol].isin([groupvalue])]
-        
-        q1 = Outlier[self.SelectColumnName].quantile(0.25) #calculate q1
-        q3 = Outlier[self.SelectColumnName].quantile(0.75) #calculate q3
-        iqr = q3-q1 #Interquartile range
-        low  = q1-1.5*iqr 
-        high = q3+1.5*iqr
-
-        list = []
-        Normal = Outlier.loc[(Outlier[self.SelectColumnName] >= low) & (Outlier[self.SelectColumnName] <= high)] #select normal data  
-        Outlier = Outlier.loc[(Outlier[self.SelectColumnName] < low) | (Outlier[self.SelectColumnName] > high)]
-        for row in Outlier.index: 
-            list.append(row)
-
-        index = self.ui.function.currentIndex() 
-        if index == 0: #MEAN    
-            self.RemoveFlag = False
-            for i in range(len(list)):
-                result[self.SelectColumnName][list[i]] = Normal[self.SelectColumnName].mean()
-        elif index == 1: #MEDIAN
-            self.RemoveFlag = False
-            for i in range(len(list)):
-                result[self.SelectColumnName][list[i]] =  Normal[self.SelectColumnName].median()
-        elif index == 2: #MODE
-            self.RemoveFlag = False
-            for i in range(len(list)):
-                mode = Normal[self.SelectColumnName].value_counts().idxmax() #최빈값
-                result[self.SelectColumnName][list[i]] =  mode
-        elif index == 3: #REMOVE
-            self.RemoveFlag = True
-            self.RemoveRowCount = len(list)
-            for i in range(len(list)):
-                result = result.drop(result.index[list[i]])
-        return result   
-
+    #AggregationbeforeGraph&AggregationafterGraph: show graph
     def AggregationbeforeGraph(self, data):
         self.beforeFig.clear()
         self.ax1 = self.beforeFig.add_subplot(1, 1, 1)  # fig를 1행 1칸으로 나누어 1칸안에 넣기
@@ -653,7 +570,6 @@ class NonIdentifierWin(QMainWindow):
         self.ui.afterTable.setHorizontalHeaderLabels(self.round_list)
         self.ui.compareTab.setCurrentIndex(1)
         del self.after
-        
     #data Rounding end
 
     def addLevel(self, method, table): #add 버튼 누르면 프라이버시 모델 설정 가능
@@ -669,7 +585,7 @@ class NonIdentifierWin(QMainWindow):
         table.removeRow(table.currentRow())
 
 
-    #데이터 mainwindow.deData 및 methodTable 저장 및 UI 끄기
+    #데이터 self.mainWin.deData 및 methodTable 저장 및 UI 끄기
     def finishButton(self, methodname):
 
         #methodTable에 이미 비식별 메소드가 있다면 삭제
@@ -683,12 +599,12 @@ class NonIdentifierWin(QMainWindow):
 
 
         if(methodname == "swap"):
-            self.mainWin.ApplyMethod[self.SelectColumnName] = ["swap", [0, 0], [1, self.swap_values]]
+            self.mainWin.ApplyMethod[self.SelectColumnName] = [[self.SelectColumnName, "swap", 0, 0], [self.SelectColumnName, "swap", 1, self.swap_values]]
             self.methodTable_Box(self.SelectColumnName, methodname, self.swap_list)
             del self.swap_list
             del self.swap_values
         elif(methodname == "shuffle"):
-            self.mainWin.ApplyMethod[self.SelectColumnName] = ["shuffle", [0, 0], [1, self.shufflenumber]]
+            self.mainWin.ApplyMethod[self.SelectColumnName] = [[self.SelectColumnName, "shuffle", 0, 0], [self.SelectColumnName, "shuffle", 1, self.shufflenumber]]
             self.methodTable_Level(self.SelectColumnName, methodname,  ("Suffled " + str(self.shufflenumber)),)
             del self.shufflenumber
         elif(methodname == "연속 변수 범주화"):
@@ -697,17 +613,43 @@ class NonIdentifierWin(QMainWindow):
             self.methodTable_Box(self.SelectColumnName, methodname, self.o_Categorical)
         elif(methodname == "마스킹"): 
             self.methodTable_Level(self.SelectColumnName, methodname, ("level " + str(self.m_level)))
-        elif(methodname == "통계 처리"):
-            self.methodTable_Level(self.SelectColumnName, methodname, self.AggregationLevel)
+        elif(methodname == "aggregation"):           
+            agg_list = []
+            agg_levels = [[self.SelectColumnName, "aggregation", 0, 0]] #get user's input values in LevelTable
+
+            #경우의 수 저장
+            for row in range(self.ui.LevelTable.rowCount()): #get user's input values in LevelTable
+                col_one = self.ui.LevelTable.item(row, 0)
+                col_two = self.ui.LevelTable.item(row, 1)
+                param_list = [self.SelectColumnName, "aggregation"]
+                param_list.append('' if col_one is None else str(col_one.text()))
+                param_list.append('' if col_two is None else str(col_two.text()))
+                agg_list.append(param_list[2] + "_Method_"+ param_list[3])
+                agg_levels.append(param_list)
+                del param_list
+
+            agg_levels = [rst for i, rst in enumerate(agg_levels) if rst not in agg_levels[:i]] #중복제거
+            agg_list = [rst for i, rst in enumerate(agg_list) if rst not in agg_list[:i]] #중복제거
+            self.mainWin.ApplyMethod[self.SelectColumnName] = agg_levels #경우의 수 저장
+            self.methodTable_Box(self.SelectColumnName, methodname, agg_list)  # show methodTable
+            del agg_list
+            del agg_levels
+
         elif (methodname == "rounding"):
             del self.round_list[0]
-            self.methodTable_Box(self.SelectColumnName, methodname, self.round_list)
-            temp_list = ["rounding", [0,0]]
-            for i in range(self.ui.LevelTable.rowCount()):
-                temp_list.append([self.r_list[i][0], int(self.r_list[i][1])])
-                
-            self.mainWin.ApplyMethod[self.SelectColumnName] = temp_list
-            del temp_list
+            self.round_list = [rst for i, rst in enumerate(self.round_list) if rst not in self.round_list[:i]]#중복 제거
+            self.methodTable_Box(self.SelectColumnName, methodname, self.round_list) # show methodTable
+            
+            #rounding 경우의 수 계산
+            rounding_levels = [[self.SelectColumnName, "rounding", 0,0]]
+            for i in range(self.ui.LevelTable.rowCount()): #get user's input values in LevelTable
+                rounding_levels.append([self.SelectColumnName, "rounding", self.r_list[i][0], int(self.r_list[i][1])])
+            
+            rounding_levels =[rst for i, rst in enumerate(rounding_levels) if rst not in rounding_levels[:i]] #중복제거
+
+            self.mainWin.ApplyMethod[self.SelectColumnName] = rounding_levels #경우의 수 저장
+            #안쓰는 변수 제거
+            del rounding_levels
             del self.r_list
             del self.round_list
 
