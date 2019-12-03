@@ -2,7 +2,6 @@ import numpy as np
 
 #swap(교환기법)
 def Swap(dataframe, origin_list, swap_list):  #데이터프레임, 바꾸고 싶은 값 리스트 
-
     """값 변경"""
     for i in range(len(origin_list)):
         dataframe.loc[dataframe[dataframe.columns[0]]==origin_list[i], dataframe.columns[0]] = swap_list[i]     
@@ -16,7 +15,6 @@ def Shuffle(dataframe, number):  #데이터프레임, 셔플횟수
 
 #rounding(라운딩)
 def Rounding(dataframe, r_index=0, r_level=0, randomN=0): #데이터프레임, 라운딩방법, 자리수   
-    dataframe = dataframe.copy()
     if(r_index == "올림"):# 올림
         dataframe[dataframe.columns[0]] = ((dataframe[dataframe.columns[0]]+9*pow(10, r_level-1))//pow(10, r_level))*pow(10, r_level) # change number, up
     elif(r_index == "내림"):#내림
@@ -27,87 +25,67 @@ def Rounding(dataframe, r_index=0, r_level=0, randomN=0): #데이터프레임, �
         dataframe[dataframe.columns[0]] = ((dataframe[dataframe.columns[0]]+(10-randomN))//pow(10, r_level))*pow(10, r_level) # change number, 4down, 5up
             
     return dataframe
-  
 
 #masking(마스킹)
 def Masking(dataframe, m_index, m_level):      #데이터프레임['컬럼명'].to_frame(), index, level
-
-    try:  #숫자만 입력, 그 외 값은 예외처리
-        m_level = int(m_level)
-        if(m_level<1):
-            m_level/0
-    except Exception:
-        print('Error','Input can only be a m_level')
-    pass
-
-    beforedata = dataframe[dataframe.columns[0]].to_frame()
-    afterdata = beforedata.copy()
-    
-    before_uniq = beforedata[beforedata.columns[0]].unique()
-        
-    unique_len = [] #길이를 저장
-    mask = [] #
-    after_uniq = before_uniq.copy() #
-
-    for i in before_uniq:
-        unique_len.append(len(i)-1) #유니크한 값의 각 길이를 저장
-
-    for j in range(len(beforedata.index)): #rendering data (inputtable of Tab1)
-        for u in range(len(before_uniq)):
-            if(m_index == 0): # * masking
-                if m_level > unique_len[u]:
-                    t_lev = unique_len[u]+1
-                    mask.append(after_uniq[u][unique_len[u]-(t_lev-1):unique_len[u]+1].replace(after_uniq[u][unique_len[u]-(t_lev-1):unique_len[u]+1], "*"*t_lev))
-                    after_uniq[u] = after_uniq[u][0:unique_len[u]-(t_lev-1)]
-                    after_uniq[u] = after_uniq[u]+mask[u]
-                    if beforedata[beforedata.columns[0]][j] == before_uniq[u]: # self.after[self.after.columns[0]][j] == before_uniq[i]:
-                        afterdata[afterdata.columns[0]][j] = str(afterdata[afterdata.columns[0]][j]).replace(before_uniq[u], after_uniq[u])
-                        
-                else:
-                    mask.append(after_uniq[u][unique_len[u]-(m_level-1):unique_len[u]+1].replace(after_uniq[u][unique_len[u]-(m_level-1):unique_len[u]+1], "*"*m_level))
-                    after_uniq[u] = after_uniq[u][0:unique_len[u]-(m_level-1)]
-                    after_uniq[u] = after_uniq[u]+mask[u]
-                    if beforedata[beforedata.columns[0]][j] == before_uniq[u]: # self.after[self.after.columns[0]][j] == before_uniq[i]:
-                        afterdata[afterdata.columns[0]][j] = str(afterdata[afterdata.columns[0]][j]).replace(before_uniq[u], after_uniq[u])
-                        
-            elif(m_index == 1): # 0 masking
-                if m_level > unique_len[u]:
-                    t_lev = unique_len[u]+1
-                    mask.append(after_uniq[u][unique_len[u]-(t_lev-1):unique_len[u]+1].replace(after_uniq[u][unique_len[u]-(t_lev-1):unique_len[u]+1], "0"*t_lev))
-                    after_uniq[u] = after_uniq[u][0:unique_len[u]-(t_lev-1)]
-                    after_uniq[u] = after_uniq[u]+mask[u]
-                    if beforedata[beforedata.columns[0]][j] == before_uniq[u]: # self.after[self.after.columns[0]][j] == before_uniq[i]:
-                        afterdata[afterdata.columns[0]][j] = str(afterdata[afterdata.columns[0]][j]).replace(before_uniq[u], after_uniq[u])
-                        
-                else:
-                    mask.append(after_uniq[u][unique_len[u]-(m_level-1):unique_len[u]+1].replace(after_uniq[u][unique_len[u]-(m_level-1):unique_len[u]+1], "0"*m_level))
-                    after_uniq[u] = after_uniq[u][0:unique_len[u]-(m_level-1)]
-                    after_uniq[u] = after_uniq[u]+mask[u]
-                    if beforedata[beforedata.columns[0]][j] == before_uniq[u]: # self.after[self.after.columns[0]][j] == before_uniq[i]:
-                        afterdata[afterdata.columns[0]][j] = str(afterdata[afterdata.columns[0]][j]).replace(before_uniq[u], after_uniq[u])
-                    
-            elif(m_index == 2): # remove
-                if m_level > unique_len[u]:
-                    t_lev = unique_len[u]+1
-                    mask.append(after_uniq[u][unique_len[u]-(t_lev-1):unique_len[u]+1].replace(after_uniq[u][unique_len[u]-(t_lev-1):unique_len[u]+1], " "*t_lev))
-                    after_uniq[u] = after_uniq[u][0:unique_len[u]-(t_lev-1)]
-                    after_uniq[u] = after_uniq[u]+mask[u]
-                    if beforedata[beforedata.columns[0]][j] == before_uniq[u]: # self.after[self.after.columns[0]][j] == before_uniq[i]:
-                        afterdata[afterdata.columns[0]][j] = str(afterdata[afterdata.columns[0]][j]).replace(before_uniq[u], after_uniq[u])
-                        
-                else:
-                    mask.append(after_uniq[u][unique_len[u]-(m_level-1):unique_len[u]+1].replace(after_uniq[u][unique_len[u]-(m_level-1):unique_len[u]+1], " "*m_level))
-                    after_uniq[u] = after_uniq[u][0:unique_len[u]-(m_level-1)]
-                    after_uniq[u] = after_uniq[u]+mask[u]
-                    if beforedata[beforedata.columns[0]][j] == before_uniq[u]: # self.after[self.after.columns[0]][j] == before_uniq[i]:
-                        afterdata[afterdata.columns[0]][j] = str(afterdata[afterdata.columns[0]][j]).replace(before_uniq[u], after_uniq[u])
-                    
-    return afterdata
+    data = dataframe.copy()
+    return dataframe
 
 #categorical(범주화)
 def Categorical(dataframe, c_index):
     #need to implement
     return dataframe;
 
-#Aggregation(통계처리)
+
+#aggregation(통계처리)
 def Aggregation(dataframe, index, method):
+    #reference: https://stackoverflow.com/questions/23199796/detect-and-exclude-outliers-in-pandas-data-frame/31502974#31502974
+    q1 = dataframe[dataframe.columns[0]].quantile(0.25) #calculate q1
+    q3 = dataframe[dataframe.columns[0]].quantile(0.75) #calculate q3
+    iqr = q3-q1 #Interquartile range
+    fence_low  = q1-1.5*iqr 
+    fence_high = q3+1.5*iqr
+
+    if index == "ALL": #모든 값을 총계나 평균으로 변경  
+        if method == "총합": #총합으로 통일
+            sum = dataframe[dataframe.columns[0]].sum()
+            print(sum)
+            dataframe[dataframe.columns[0]] = sum
+            print(dataframe[dataframe.columns[0]])
+        elif method == "평균": #평균으로 통일
+            mean = dataframe[dataframe.columns[0]].mean()
+            print(mean)
+            dataframe[dataframe.columns[0]] = dataframe[dataframe.columns[0]].mean()    
+            print(dataframe[dataframe.columns[0]]) 
+    elif index == "IQR": #이상치 값만 처리
+        if method == "평균": #MEAN
+            mean =  dataframe[~((dataframe[dataframe.columns[0]] < fence_low) |(dataframe[dataframe.columns[0]]> fence_high))].mean()
+            print(mean)
+            dataframe[dataframe.columns[0]] = np.where(((dataframe[dataframe.columns[0]] < fence_low) |(dataframe[dataframe.columns[0]]  > fence_high)), mean, dataframe[dataframe.columns[0]])
+        elif method == "최대": #MAX
+            max = dataframe[~((dataframe[dataframe.columns[0]] < fence_low) |(dataframe[dataframe.columns[0]]> fence_high))].max()
+            print(max)
+            dataframe[dataframe.columns[0]] = np.where(((dataframe[dataframe.columns[0]] < fence_low) |(dataframe[dataframe.columns[0]]  > fence_high)), max, dataframe[dataframe.columns[0]])
+        elif method == "최소": #MIN
+            min = dataframe[~((dataframe[dataframe.columns[0]]< fence_low) |(dataframe[dataframe.columns[0]]> fence_high))].min()
+            print(min)
+            dataframe[dataframe.columns[0]] = np.where(((dataframe[dataframe.columns[0]] < fence_low) |(dataframe[dataframe.columns[0]]  > fence_high)), min, dataframe[dataframe.columns[0]])
+        elif method == "중앙": #MEDIAN
+            median = dataframe[dataframe.columns[0]].median()
+            print(median)
+            dataframe[dataframe.columns[0]] = np.where(((dataframe[dataframe.columns[0]] < fence_low) |(dataframe[dataframe.columns[0]]  > fence_high)), median, dataframe[dataframe.columns[0]])
+        elif method == "최빈": #MODE
+            mode = dataframe[dataframe.columns[0]].value_counts().idxmax() #최빈값
+            print(mode)
+            dataframe[dataframe.columns[0]] = np.where(((dataframe[dataframe.columns[0]] < fence_low) |(dataframe[dataframe.columns[0]]  > fence_high)), mode, dataframe[dataframe.columns[0]])
+        elif method == "삭제": #REMOVE
+            print("remove")
+            dataframe[dataframe.columns[0]] =  dataframe[~((dataframe[dataframe.columns[0]] < fence_low) |(dataframe[dataframe.columns[0]] > fence_high))]
+
+    """ float로 변경될 경우, 반올림 후 int로 재변환"""
+    #dataframe[dataframe.columns[0]]=round(dataframe[dataframe.columns[0]],0)
+    #dataframe[dataframe.columns[0]] = dataframe[dataframe.columns[0]].astype(int)
+    return dataframe
+
+
+
