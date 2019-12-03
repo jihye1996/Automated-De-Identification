@@ -27,6 +27,7 @@ sys.path.append("./PY_CODE")
 
 
 import DeIdentifier
+
 """
 TYPE: 0이면 정수, 아니면 정수
 if(mainWin.ui.typeTable.item(self.SelectColumn, 1).text() != 'int64'): #int64만 수치데이터 method 사용
@@ -599,12 +600,12 @@ class NonIdentifierWin(QMainWindow):
 
 
         if(methodname == "swap"):
-            self.mainWin.ApplyMethod[self.SelectColumnName] = [[self.SelectColumnName, "swap", 0, 0], [self.SelectColumnName, "swap", 1, self.swap_values]]
+            self.mainWin.ApplyMethod[self.SelectColumnName] = [[self.SelectColumnName, "swap", 0], [self.SelectColumnName, "swap", self.swap_values]]
             self.methodTable_Box(self.SelectColumnName, methodname, self.swap_list)
             del self.swap_list
             del self.swap_values
         elif(methodname == "shuffle"):
-            self.mainWin.ApplyMethod[self.SelectColumnName] = [[self.SelectColumnName, "shuffle", 0, 0], [self.SelectColumnName, "shuffle", 1, self.shufflenumber]]
+            self.mainWin.ApplyMethod[self.SelectColumnName] = [[self.SelectColumnName, "shuffle", 0], [self.SelectColumnName, "shuffle", self.shufflenumber]]
             self.methodTable_Level(self.SelectColumnName, methodname,  ("Suffled " + str(self.shufflenumber)),)
             del self.shufflenumber
         elif(methodname == "연속 변수 범주화"):
@@ -615,7 +616,7 @@ class NonIdentifierWin(QMainWindow):
             self.methodTable_Level(self.SelectColumnName, methodname, ("level " + str(self.m_level)))
         elif(methodname == "aggregation"):           
             agg_list = []
-            agg_levels = [[self.SelectColumnName, "aggregation", 0, 0]] #get user's input values in LevelTable
+            agg_levels = [[self.SelectColumnName, "aggregation", 0]] #get user's input values in LevelTable
 
             #경우의 수 저장
             for row in range(self.ui.LevelTable.rowCount()): #get user's input values in LevelTable
@@ -641,7 +642,7 @@ class NonIdentifierWin(QMainWindow):
             self.methodTable_Box(self.SelectColumnName, methodname, self.round_list) # show methodTable
             
             #rounding 경우의 수 계산
-            rounding_levels = [[self.SelectColumnName, "rounding", 0,0]]
+            rounding_levels = [[self.SelectColumnName, "rounding", 0]]
             for i in range(self.ui.LevelTable.rowCount()): #get user's input values in LevelTable
                 rounding_levels.append([self.SelectColumnName, "rounding", self.r_list[i][0], int(self.r_list[i][1])])
             
