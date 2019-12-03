@@ -1,17 +1,22 @@
 import numpy as np
 
 #swap(교환기법)
-def Swap(dataframe, origin_list, swap_list):  #데이터프레임, 바꾸고 싶은 값 리스트 
+def Swap(dataframe, swap_list):  #데이터프레임, 바꾸고 싶은 값 리스트 
+    uniqueIndex = dataframe[dataframe.columns[0]].unique().tolist()
+    uniqueIndex.sort()
+
     """값 변경"""
-    for i in range(len(origin_list)):
-        dataframe.loc[dataframe[dataframe.columns[0]]==origin_list[i], dataframe.columns[0]] = swap_list[i]     
+    for i in range(len(uniqueIndex)):
+        dataframe.loc[dataframe[dataframe.columns[0]]==uniqueIndex[i], dataframe.columns[0]] = swap_list[i]     
     return dataframe
+
 
 #shuffle(재배열)        
 def Shuffle(dataframe, number):  #데이터프레임, 셔플횟수
     for _ in range(number):
         dataframe[dataframe.columns[0]] = np.random.permutation(dataframe[dataframe.columns[0]].values)
     return dataframe
+
 
 #rounding(라운딩)
 def Rounding(dataframe, r_index=0, r_level=0, randomN=0): #데이터프레임, 라운딩방법, 자리수   
@@ -26,10 +31,12 @@ def Rounding(dataframe, r_index=0, r_level=0, randomN=0): #데이터프레임, �
             
     return dataframe
 
+
 #masking(마스킹)
 def Masking(dataframe, m_index, m_level):      #데이터프레임['컬럼명'].to_frame(), index, level
     data = dataframe.copy()
     return dataframe
+
 
 #categorical(범주화)
 def Categorical(dataframe, c_index):
@@ -88,4 +95,35 @@ def Aggregation(dataframe, index, method):
     return dataframe
 
 
+def K_anonymity(dataframe, list, number):
+    """준식별자를 기준으로 그룹화해서 동일 레코드 수 계산 ->
+    count 컬럼에 저장 -> count>=n 인 값만 추출 -> count 컬럼 delete  """
+    try:
+        number = int(number)
+    except NameError:
+        QtWidgets.QMessageBox.about(self, 'Error','Input can only be a number')
+    pass
 
+    dataframe['count'] = dataframe.groupby(list)[list[0]].transform('size')
+    dataframe = dataframe.loc[dataframe['count']>=number] #user parameter
+    del dataframe['count']
+    dataframe = dataframe.reset_index(drop=True)
+    print(dataframe)
+    return dataframe
+
+
+def L_diversity(dataframe, list, number, column): 
+    """준식별자를 기준으로 그룹화해서 동일 레코드 수에 대한 유니크 값 계산 ->
+    count 컬럼에 저장 -> count>=n 인 값만 추출 -> count 컬럼 delete  """
+    try:
+        number = int(number)
+    except NameError:
+        QtWidgets.QMessageBox.about(self, 'Error','Input can only be a number')
+    pass
+
+    dataframe['count'] = dataframe.groupby(list)[column].transform('nunique') #salary -> 사용자 선택 민감정보
+    dataframe = dataframe.loc[dataframe['count']>=number] #2는 사용자로부터 입력받아야되는 숫자
+    del dataframe['count']
+    dataframe = dataframe.reset_index(drop=True)       
+    print(dataframe)
+    return dataframe
