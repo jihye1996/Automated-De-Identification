@@ -166,7 +166,7 @@
       </rect>
      </property>
      <property name="text">
-      <string>범주화 요소</string>
+      <string>묶을 요소 갯수 입력</string>
      </property>
     </widget>
     <widget class="QPushButton" name="runButton">
