@@ -44,6 +44,7 @@ class NonIdentifierWin(QMainWindow):
     
     def InitUI(self):
         self.ui = uic.loadUi("./UI/SelectNonIdentifierMethod.ui") #insert your UI path
+        print("NonIdentifierWin.py Select UI")
         self.ui.show()
 
         
@@ -114,17 +115,24 @@ class NonIdentifierWin(QMainWindow):
             self.ui.backButton.clicked.connect(self.InitUI)
         
         elif(self.ui.Method4.isChecked()): # 마스킹 및 삭제
-            self.ui = uic.loadUi("./UI/maskingData.ui") #insert your UI path
+            self.ui = uic.loadUi("./UI/masking.ui") #insert your UI path
             self.ui.show()
 
-            self.m_level = self.ui.maskingText.textChanged.connect(self.usedbyMasking)
-            self.m_index = self.ui.m_comboBox.currentIndexChanged.connect(self.usedbyMasking)
+            self.ui.afterTable.setRowCount(self.rownum) #Set Column Count s    
+            
+            for j in range(self.rownum): #rendering data 
+                self.ui.afterTable.setItem(j,0,QTableWidgetItem(str(self.before[self.before.columns[0]][j])))
 
-            self.before = self.mainWin.originData[self.SelectColumnName].to_frame() #pull one column and convert list
-            rownum = len(self.before.index) # get row count
-            colnum = len(self.before.columns) # get column count
-
-            self.ui.nextButton.clicked.connect(self.Masking)
+            #self.before = mainwindow.originData[self.SelectColumnName].to_frame() #pull one column and convert list
+           
+            #self.ui.nextButton.clicked.connect(self.Masking)
+            #self.ui.cancelButton.clicked.connect(self.ui.hide)
+            #self.ui.backButton.clicked.connect(self.InitUI)
+            
+            self.ui.addButton.clicked.connect(lambda: self.addLevel("masking", self.ui.LevelTable))
+            self.ui.delButton.clicked.connect(lambda: self.delLevel(self.ui.LevelTable))
+            self.ui.runButton.clicked.connect(self.Masking)
+            self.ui.finishButton.clicked.connect(lambda: self.finishButton("masking"))
             self.ui.cancelButton.clicked.connect(self.ui.hide)
             self.ui.backButton.clicked.connect(self.InitUI)
         
@@ -362,78 +370,41 @@ class NonIdentifierWin(QMainWindow):
                         self.ui.categorical.setItem(j,0,QTableWidgetItem(str(self.after[self.after.columns[0]][j])))
              
     def Masking(self):
-        self.ui = uic.loadUi("./UI/maskingData_review.ui") #insert your UI path
-        self.ui.show()
-        self.ui.maskingLevel.setRowCount(self.rownum) #Set Column Count s    
+        #self.ui = uic.loadUi("./UI/maskingData_review.ui") #insert your UI path
+        #self.ui.show()
+        #self.ui.maskingLevel.setRowCount(self.rownum) #Set Column Count s    
         
-        self.after = self.before.copy()
+        m_row = self.ui.LevelTable.rowCount()
+        self.m_list = []
+        for row in range(m_row):
+            param_list = []
+            for col in range(self.ui.LevelTable.columnCount()):
+                table_item = self.ui.LevelTable.item(row,col)
+                if col == 0 and isinstance(self.ui.LevelTable.cellWidget(row, 0), QComboBox):
+                    current_value = self.ui.LevelTable.cellWidget(row, 0).currentText()
+                    param_list.append(current_value)
+                else:
+                    param_list.append('' if table_item is None else str(table_item.text()))
+            self.m_list.append(param_list)
+            print("m_list",self.m_list)
+            del param_list
 
-        before_uniq = self.before[self.before.columns[0]].unique()
-        
-        unique_len = []
-        mask = []
-        after_uniq = before_uniq.copy()
-
-        for i in before_uniq:
-            unique_len.append(len(i)-1)
-
-        for j in range(self.rownum): #rendering data (inputtable of Tab1)
-            for u in range(len(before_uniq)):
-                if(self.m_index == 0): # * masking
-                    if self.m_level > unique_len[u]:
-                        t_lev = unique_len[u]+1
-                        mask.append(after_uniq[u][unique_len[u]-(t_lev-1):unique_len[u]+1].replace(after_uniq[u][unique_len[u]-(t_lev-1):unique_len[u]+1], "*"*t_lev))
-                        after_uniq[u] = after_uniq[u][0:unique_len[u]-(t_lev-1)]
-                        after_uniq[u] = after_uniq[u]+mask[u]
-                        if self.before[self.before.columns[0]][j] == before_uniq[u]: # self.after[self.after.columns[0]][j] == before_uniq[i]:
-                            self.after[self.after.columns[0]][j] = str(self.after[self.after.columns[0]][j]).replace(before_uniq[u], after_uniq[u])
-                    
-                    else:
-                        mask.append(after_uniq[u][unique_len[u]-(self.m_level-1):unique_len[u]+1].replace(after_uniq[u][unique_len[u]-(self.m_level-1):unique_len[u]+1], "*"*self.m_level))
-                        after_uniq[u] = after_uniq[u][0:unique_len[u]-(self.m_level-1)]
-                        after_uniq[u] = after_uniq[u]+mask[u]
-                        if self.before[self.before.columns[0]][j] == before_uniq[u]: # self.after[self.after.columns[0]][j] == before_uniq[i]:
-                            self.after[self.after.columns[0]][j] = str(self.after[self.after.columns[0]][j]).replace(before_uniq[u], after_uniq[u])
-                    
-                elif(self.m_index == 1): # 0 masking
-                    if self.m_level > unique_len[u]:
-                        t_lev = unique_len[u]+1
-                        mask.append(after_uniq[u][unique_len[u]-(t_lev-1):unique_len[u]+1].replace(after_uniq[u][unique_len[u]-(t_lev-1):unique_len[u]+1], "0"*t_lev))
-                        after_uniq[u] = after_uniq[u][0:unique_len[u]-(t_lev-1)]
-                        after_uniq[u] = after_uniq[u]+mask[u]
-                        if self.before[self.before.columns[0]][j] == before_uniq[u]: # self.after[self.after.columns[0]][j] == before_uniq[i]:
-                            self.after[self.after.columns[0]][j] = str(self.after[self.after.columns[0]][j]).replace(before_uniq[u], after_uniq[u])
-                    
-                    else:
-                        mask.append(after_uniq[u][unique_len[u]-(self.m_level-1):unique_len[u]+1].replace(after_uniq[u][unique_len[u]-(self.m_level-1):unique_len[u]+1], "0"*self.m_level))
-                        after_uniq[u] = after_uniq[u][0:unique_len[u]-(self.m_level-1)]
-                        after_uniq[u] = after_uniq[u]+mask[u]
-                        if self.before[self.before.columns[0]][j] == before_uniq[u]: # self.after[self.after.columns[0]][j] == before_uniq[i]:
-                            self.after[self.after.columns[0]][j] = str(self.after[self.after.columns[0]][j]).replace(before_uniq[u], after_uniq[u])
-                    
-                elif(self.m_index == 2): # remove
-                    if self.m_level > unique_len[u]:
-                        t_lev = unique_len[u]+1
-                        mask.append(after_uniq[u][unique_len[u]-(t_lev-1):unique_len[u]+1].replace(after_uniq[u][unique_len[u]-(t_lev-1):unique_len[u]+1], " "*t_lev))
-                        after_uniq[u] = after_uniq[u][0:unique_len[u]-(t_lev-1)]
-                        after_uniq[u] = after_uniq[u]+mask[u]
-                        if self.before[self.before.columns[0]][j] == before_uniq[u]: # self.after[self.after.columns[0]][j] == before_uniq[i]:
-                            self.after[self.after.columns[0]][j] = str(self.after[self.after.columns[0]][j]).replace(before_uniq[u], after_uniq[u])
-                    
-                    else:
-                        mask.append(after_uniq[u][unique_len[u]-(self.m_level-1):unique_len[u]+1].replace(after_uniq[u][unique_len[u]-(self.m_level-1):unique_len[u]+1], " "*self.m_level))
-                        after_uniq[u] = after_uniq[u][0:unique_len[u]-(self.m_level-1)]
-                        after_uniq[u] = after_uniq[u]+mask[u]
-                        if self.before[self.before.columns[0]][j] == before_uniq[u]: # self.after[self.after.columns[0]][j] == before_uniq[i]:
-                            self.after[self.after.columns[0]][j] = str(self.after[self.after.columns[0]][j]).replace(before_uniq[u], after_uniq[u])
-            
-            self.ui.maskingLevel.setItem(j,0,QTableWidgetItem(str(self.before[self.before.columns[0]][j])))
-            self.ui.maskingLevel.setItem(j,1,QTableWidgetItem((self.after[self.after.columns[0]][j])))        
-
+        #rendering aftetable 
+        self.mask_list = ["원본"]
+        self.ui.afterTable.setColumnCount(row+2)   
+        for i in range(row+1): #rendering data
+            self.after = self.before.copy()
+            self.after = DeIdentifier.Masking(self.after, self.m_list[i][0], int(self.m_list[i][1]))  # dataframe, m_index, m_level
+            for j in range(self.rownum):
+                self.ui.afterTable.setItem(j,i+1,QTableWidgetItem(str(self.after[self.after.columns[0]][j]))) #행, 컬럼
+            self.mask_list.append(self.m_list[i][0] + ", level"+ (self.m_list[i][1]))
+        self.ui.afterTable.setHorizontalHeaderLabels(self.mask_list)
+        self.ui.compareTab.setCurrentIndex(1)
+        del self.after
         
         #self.ui.backButton.clicked.connect(self.ui.hide)
-        self.ui.finishButton.clicked.connect(lambda: self.finishButton("마스킹"))
-        self.ui.cancelButton.clicked.connect(self.ui.hide)
+        #self.ui.finishButton.clicked.connect(lambda: self.finishButton("마스킹"))
+        #self.ui.cancelButton.clicked.connect(self.ui.hide)
 
     """마스킹, 범주화 끝"""
 
@@ -545,18 +516,21 @@ class NonIdentifierWin(QMainWindow):
 
     #data Rounding start
     def Rounding(self):
+        print("NonIdentifierWin.py Rounding")
         row = self.ui.LevelTable.rowCount()
         self.r_list = []
         for row in range(row):
             param_list = []
             for col in range(self.ui.LevelTable.columnCount()):
                 table_item = self.ui.LevelTable.item(row,col)
+                print("NonIdentifierWin.py table_item:",table_item)
                 if col == 0 and isinstance(self.ui.LevelTable.cellWidget(row, 0), QComboBox):
                     current_value = self.ui.LevelTable.cellWidget(row, 0).currentText()
                     param_list.append(current_value)
                 else:
                     param_list.append('' if table_item is None else str(table_item.text()))
             self.r_list.append(param_list)
+            print("r_list",self.r_list)
             del param_list
 
         #rendering aftetable 
@@ -576,11 +550,17 @@ class NonIdentifierWin(QMainWindow):
     def addLevel(self, method, table): #add 버튼 누르면 프라이버시 모델 설정 가능
         if(method == "rounding"):
             privacy_list = ["올림", "내림", "반올림", "랜덤"]
+            table.insertRow(table.rowCount())
+            self.addCombo = QComboBox() 
+            self.addCombo.addItems(privacy_list)
+            table.setCellWidget(table.rowCount()-1, 0, self.addCombo)
 
-        table.insertRow(table.rowCount())
-        self.addCombo = QComboBox() 
-        self.addCombo.addItems(privacy_list)
-        table.setCellWidget(table.rowCount()-1, 0, self.addCombo)
+        elif(method == "masking"):
+            privacy_list = ["*", "0", "( )"]
+            table.insertRow(table.rowCount())
+            self.addCombo = QComboBox() 
+            self.addCombo.addItems(privacy_list)
+            table.setCellWidget(table.rowCount()-1, 0, self.addCombo)
 
     def delLevel(self, table):
         table.removeRow(table.currentRow())
@@ -612,30 +592,17 @@ class NonIdentifierWin(QMainWindow):
             self.methodTable_Box(self.SelectColumnName, methodname, self.i_Categorical)
         elif(methodname == "순위 변수 범주화"):
             self.methodTable_Box(self.SelectColumnName, methodname, self.o_Categorical)
-        elif(methodname == "마스킹"): 
-            self.methodTable_Level(self.SelectColumnName, methodname, ("level " + str(self.m_level)))
-        elif(methodname == "aggregation"):           
-            agg_list = []
-            agg_levels = [[self.SelectColumnName, "aggregation", 0]] #get user's input values in LevelTable
-
-            #경우의 수 저장
-            for row in range(self.ui.LevelTable.rowCount()): #get user's input values in LevelTable
-                col_one = self.ui.LevelTable.item(row, 0)
-                col_two = self.ui.LevelTable.item(row, 1)
-                param_list = [self.SelectColumnName, "aggregation"]
-                param_list.append('' if col_one is None else str(col_one.text()))
-                param_list.append('' if col_two is None else str(col_two.text()))
-                agg_list.append(param_list[2] + "_Method_"+ param_list[3])
-                agg_levels.append(param_list)
-                del param_list
-
-            agg_levels = [rst for i, rst in enumerate(agg_levels) if rst not in agg_levels[:i]] #중복제거
-            agg_list = [rst for i, rst in enumerate(agg_list) if rst not in agg_list[:i]] #중복제거
-            self.mainWin.ApplyMethod[self.SelectColumnName] = agg_levels #경우의 수 저장
-            self.methodTable_Box(self.SelectColumnName, methodname, agg_list)  # show methodTable
-            del agg_list
-            del agg_levels
-
+        elif(methodname == "masking"): 
+            print("&&&")
+            del self.mask_list[0]
+            self.methodTable_Box(self.SelectColumnName, methodname, self.mask_list)
+            tmp_list = ["masking", [0,0]]
+            for i in range(self.ui.LevelTable.rowCount()):
+                tmp_list.append([self.m_list[i][0], int(self.m_list[i][1])])
+                print(tmp_list)
+                self.mainWin.ApplyMethod[self.SelectColumnName] = tmp_list
+        elif(methodname == "통계 처리"):
+            self.methodTable_Level(self.SelectColumnName, methodname, self.AggregationLevel)
         elif (methodname == "rounding"):
             del self.round_list[0]
             self.round_list = [rst for i, rst in enumerate(self.round_list) if rst not in self.round_list[:i]]#중복 제거

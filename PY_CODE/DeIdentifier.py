@@ -1,4 +1,5 @@
 import numpy as np
+import time
 
 #swap(교환기법)
 def Swap(dataframe, swap_list):  #데이터프레임, 바꾸고 싶은 값 리스트 
@@ -21,6 +22,7 @@ def Shuffle(dataframe, number):  #데이터프레임, 셔플횟수
 #rounding(라운딩)
 def Rounding(dataframe, r_index=0, r_level=0, randomN=0): #데이터프레임, 라운딩방법, 자리수   
     if(r_index == "올림"):# 올림
+        print("DeIdentifier r_index=올림")
         dataframe[dataframe.columns[0]] = ((dataframe[dataframe.columns[0]]+9*pow(10, r_level-1))//pow(10, r_level))*pow(10, r_level) # change number, up
     elif(r_index == "내림"):#내림
         dataframe[dataframe.columns[0]] = (dataframe[dataframe.columns[0]]//pow(10, r_level))*pow(10, r_level) # change number, down
@@ -34,9 +36,181 @@ def Rounding(dataframe, r_index=0, r_level=0, randomN=0): #데이터프레임, �
 
 #masking(마스킹)
 def Masking(dataframe, m_index, m_level):      #데이터프레임['컬럼명'].to_frame(), index, level
-    data = dataframe.copy()
-    return dataframe
+    """
+    try:  #숫자만 입력, 그 외 값은 예외처리
+        m_level = int(m_level)
+        if(m_level<1):
+            m_level/0
+    except Exception:
+        print('Error','Input can only be a m_level')
+    pass
 
+    beforedata = dataframe[dataframe.columns[0]].to_frame()
+    afterdata = beforedata.copy()
+    """
+    start = time.time()
+    afterframe = dataframe.copy()
+    before_uniq = dataframe[dataframe.columns[0]].unique()
+    
+    unique_len = []
+    after_uniq = before_uniq.copy()
+
+    for i in before_uniq:
+        unique_len.append(len(i)-1)
+
+    max_len = max(unique_len)
+
+    for idx,i in enumerate(unique_len):
+        if(m_index == "*"): # * masking
+            if i < max_len:
+                while i != max_len:
+                    after_uniq[idx] = after_uniq[idx] + "*"
+                    i += 1
+            else:
+                after_uniq[idx] = after_uniq[idx][:i] + "*"
+
+            after_uniq[idx] = after_uniq[idx][:max_len-m_level+1] + "*" * m_level
+            afterframe.loc[afterframe[afterframe.columns[0]] == before_uniq[idx], afterframe.columns[0]] = after_uniq[idx]
+
+        elif(m_index == "0"): # 0 masking
+            if i < max_len:
+                while i != max_len:
+                    after_uniq[idx] = after_uniq[idx] + "0"
+                    i += 1
+            else:
+                after_uniq[idx] = after_uniq[idx][:i] + "0"
+
+            after_uniq[idx] = after_uniq[idx][:max_len-m_level+1] + "0" * m_level
+            afterframe.loc[afterframe[afterframe.columns[0]] == before_uniq[idx], afterframe.columns[0]] = after_uniq[idx]
+
+        elif(m_index == "( )"): # ( ) masking
+            if i < max_len:
+                while i != max_len:
+                    after_uniq[idx] = after_uniq[idx] + " "
+                    i += 1
+            else:
+                after_uniq[idx] = after_uniq[idx][:i] + " "
+
+            after_uniq[idx] = after_uniq[idx][:max_len-m_level+1] + " " * m_level
+            afterframe.loc[afterframe[afterframe.columns[0]] == before_uniq[idx], afterframe.columns[0]] = after_uniq[idx]
+    print(time.time() -start)
+    return afterframe
+
+def Categorical_next(self):
+
+    if(self.ui.ordering.isChecked()):
+        self.ui = uic.loadUi("./UI/ordering_categorical.ui")
+        self.ui.show()
+    
+        self.original_uniq = self.before[self.SelectColumnName].unique()
+        self.ui.original.setRowCount(len(self.original_uniq))
+        self.ui.original.setHorizontalHeaderLabels(['values'])
+
+        self.ui.categorical.setHorizontalHeaderLabels(['categorical'])
+        self.original_uniq = list(self.original_uniq)
+            
+        self.groupEle = []
+        self.groupEle_ui = []
+
+        for v in range(len(self.original_uniq)):
+            self.ui.original.setItem(v,0,QTableWidgetItem(str(self.original_uniq[v])))
+        
+        self.ui.runButton.clicked.connect(self.Ordering_Categorical)
+        self.ui.cancelButton.clicked.connect(self.ui.hide)
+
+    elif(self.ui.intervals.isChecked()):
+        self.ui = uic.loadUi("./UI/intervals_categorical.ui") #insert your UI path
+        self.ui.show()
+
+        self.ui.original.setRowCount(self.rownum) #Set Column Count s 
+        self.ui.original.setHorizontalHeaderLabels(['original'])
+
+        for j in range(self.rownum): #rendering data (inputtable of Tab1)
+            self.ui.original.setItem(j,0,QTableWidgetItem(str(self.before[self.before.columns[0]][j])))
+
+        self.ui.runButton.clicked.connect(self.Intervals_Categorical)
+        self.ui.finishButton.clicked.connect(lambda: self.finishButton("연속 변수 범주화"))
+        self.ui.cancelButton.clicked.connect(self.ui.hide)
+
+def Ordering_Categorical(self):
+    self.orderValue = int(self.ui.orderText.toPlainText()) 
+
+    start = 0
+    end = len(self.original_uniq)
+    print("end len :", end)
+    
+    for i in range(start, end+self.orderValue, self.orderValue):
+        groupEle_tmp = self.original_uniq[start : start + self.orderValue]
+        if groupEle_tmp != []:
+            self.groupEle.append(groupEle_tmp)
+            self.groupEle_tui = str(groupEle_tmp).replace("'","")
+            self.groupEle_ui.append(self.groupEle_tui)
+            #print(self.groupEle_tui)
+        start = start + self.orderValue
+
+    self.ui.categorical.setRowCount(len(self.groupEle_ui))
+
+    for cat in range(len(self.groupEle_ui)):
+        self.ui.categorical.setItem(cat, 0, QTableWidgetItem(self.groupEle_ui[cat]))
+    #print(self.groupEle)
+
+    self.ui.finishButton.clicked.connect(self.Ordering_Categorical_finish)
+
+def Ordering_Categorical_finish(self):
+    self.after = self.before.copy()
+    self.o_Categorical = []
+    
+    for b in range(len(self.groupEle_ui)):
+        for z in range(len(self.groupEle[b])):
+            self.after.loc[self.after[self.SelectColumnName]==str((self.groupEle[b][z])), self.SelectColumnName] = str((self.groupEle_ui[b]))
+            for j in range(len(self.original_uniq)):
+                if self.original_uniq[j] == self.groupEle[b][z]:
+                    self.o_Categorical.append(str(self.original_uniq[j]) + "  " + str(self.groupEle_ui[b]))
+    self.finishButton("순위 변수 범주화")
+
+def Intervals_Categorical(self):
+    self.after = self.before.copy()
+
+    self.i_Categorical = []
+
+    self.ui.categorical.setRowCount(self.rownum) #Set Column Count s 
+    self.ui.categorical.setHorizontalHeaderLabels(['categorical'])
+
+    minValue = self.ui.minText.toPlainText()
+    maxValue = self.ui.maxText.toPlainText()
+    interValue = self.ui.interText.toPlainText()
+
+    try:
+        minValue = int(minValue)
+        maxValue = int(maxValue)
+        interValue = int(interValue)
+        if(minValue<1):
+            minValue/0
+        elif(maxValue<1):
+            maxValue/0
+        elif(interValue<1):
+            interValue/0
+    except Exception:
+        QtWidgets.QMessageBox.about(self, 'Error','Input can only be a number')
+    pass
+        
+    for j in range(self.rownum):
+        if self.before[self.before.columns[0]][j] < minValue:
+            self.after[self.after.columns[0]][j] = "<" + str(minValue)
+            self.i_Categorical.append(str(self.before[self.before.columns[0]][j]) + "  " + str(self.after[self.after.columns[0]][j]))
+            self.ui.categorical.setItem(j,0,QTableWidgetItem(str(self.after[self.after.columns[0]][j])))
+        elif self.before[self.before.columns[0]][j] >= maxValue:
+            self.after[self.after.columns[0]][j] = ">= " + str(maxValue)
+            self.i_Categorical.append(str(self.before[self.before.columns[0]][j]) + "  " + str(self.after[self.after.columns[0]][j]))
+            self.ui.categorical.setItem(j,0,QTableWidgetItem(str(self.after[self.after.columns[0]][j])))
+        else:
+            ii = int((maxValue-minValue)/interValue)
+            for i in range(ii):
+                if self.before[self.before.columns[0]][j]-minValue >= i*interValue and self.before[self.before.columns[0]][j]-minValue < (i+1)*interValue:
+                    self.after[self.after.columns[0]][j] = "[" + str(minValue+i*interValue) + "," + str(minValue+(i+1)*interValue) + ")"
+                    self.i_Categorical.append(str(self.before[self.before.columns[0]][j]) + "  " + str(self.after[self.after.columns[0]][j]))
+                    self.ui.categorical.setItem(j,0,QTableWidgetItem(str(self.after[self.after.columns[0]][j])))
+            
 
 #categorical(범주화)
 def Categorical(dataframe, c_index):
