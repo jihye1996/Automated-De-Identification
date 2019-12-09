@@ -96,65 +96,30 @@ def Masking(dataframe, m_index, m_level):      #데이터프레임['컬럼명'].
     print(time.time() -start)
     return afterframe
 
-def Categorical_next(self):
+def O_Categorical(dataframe, groupValue):
+    original_uniq = list(dataframe[dataframe.columns[0]].unique())
 
-    if(self.ui.ordering.isChecked()):
-        self.ui = uic.loadUi("./UI/ordering_categorical.ui")
-        self.ui.show()
-    
-        self.original_uniq = self.before[self.SelectColumnName].unique()
-        self.ui.original.setRowCount(len(self.original_uniq))
-        self.ui.original.setHorizontalHeaderLabels(['values'])
-
-        self.ui.categorical.setHorizontalHeaderLabels(['categorical'])
-        self.original_uniq = list(self.original_uniq)
-            
-        self.groupEle = []
-        self.groupEle_ui = []
-
-        for v in range(len(self.original_uniq)):
-            self.ui.original.setItem(v,0,QTableWidgetItem(str(self.original_uniq[v])))
-        
-        self.ui.runButton.clicked.connect(self.Ordering_Categorical)
-        self.ui.cancelButton.clicked.connect(self.ui.hide)
-
-    elif(self.ui.intervals.isChecked()):
-        self.ui = uic.loadUi("./UI/intervals_categorical.ui") #insert your UI path
-        self.ui.show()
-
-        self.ui.original.setRowCount(self.rownum) #Set Column Count s 
-        self.ui.original.setHorizontalHeaderLabels(['original'])
-
-        for j in range(self.rownum): #rendering data (inputtable of Tab1)
-            self.ui.original.setItem(j,0,QTableWidgetItem(str(self.before[self.before.columns[0]][j])))
-
-        self.ui.runButton.clicked.connect(self.Intervals_Categorical)
-        self.ui.finishButton.clicked.connect(lambda: self.finishButton("연속 변수 범주화"))
-        self.ui.cancelButton.clicked.connect(self.ui.hide)
-
-def Ordering_Categorical(self):
-    self.orderValue = int(self.ui.orderText.toPlainText()) 
+    groupCat = []
+    groupCat_str = []
 
     start = 0
-    end = len(self.original_uniq)
-    print("end len :", end)
+    end = len(original_uniq)
     
-    for i in range(start, end+self.orderValue, self.orderValue):
-        groupEle_tmp = self.original_uniq[start : start + self.orderValue]
+    for _ in range(start, end+groupValue, groupValue):
+        groupEle_tmp = original_uniq[start : start + groupValue]
         if groupEle_tmp != []:
-            self.groupEle.append(groupEle_tmp)
-            self.groupEle_tui = str(groupEle_tmp).replace("'","")
-            self.groupEle_ui.append(self.groupEle_tui)
-            #print(self.groupEle_tui)
-        start = start + self.orderValue
+            groupCat.append(groupEle_tmp)
+            groupEle_tui = str(groupEle_tmp).replace("'","")
+            groupCat_str.append(groupEle_tui)
+        start = start + groupValue
 
-    self.ui.categorical.setRowCount(len(self.groupEle_ui))
+    del groupEle_tmp
 
-    for cat in range(len(self.groupEle_ui)):
-        self.ui.categorical.setItem(cat, 0, QTableWidgetItem(self.groupEle_ui[cat]))
-    #print(self.groupEle)
+    for idx, cat in enumerate(groupCat):
+        for i in range(len(cat)):
+            dataframe.loc[dataframe[dataframe.columns[0]] == str(cat[i]), dataframe.columns[0]] = str(groupCat_str[idx])
 
-    self.ui.finishButton.clicked.connect(self.Ordering_Categorical_finish)
+    return dataframe, groupCat, groupCat_str
 
 def Ordering_Categorical_finish(self):
     self.after = self.before.copy()
