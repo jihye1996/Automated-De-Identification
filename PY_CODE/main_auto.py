@@ -134,9 +134,8 @@ class MainWidget(QMainWindow):
                 type = 0
             
             print(self.originData[self.originData.columns[col]].to_frame())
-            self.NonIdenfitierwindow = NonIdentifierWin(mainwindow, self.originData[self.originData.columns[col]].to_frame(),type)
+            self.NonIdentifierwindow = NonIdentifierWin(mainwindow, self.originData[self.originData.columns[col]].to_frame(),type)
 
-    
     def viewClicked(self, item): #cell 클릭시 식별자 radio button checked
         self.col = item.column()
         self.row = item.row()
@@ -277,6 +276,21 @@ class MainWidget(QMainWindow):
                         deData[cases[i][j][0]] = DeIdentifier.Aggregation(deData[cases[i][j][0]].to_frame(), cases[i][j][2], cases[i][j][3])
                         #print("aggregation: ", str(cases[i][j][0]))
                         #print("aggregation: ", deData[str(cases[i][j][0])])
+                    elif cases[i][j][1] == "masking":
+                        deData[cases[i][j][0]] = DeIdentifier.Masking(deData[cases[i][j][0]].to_frame(), cases[i][j][2], cases[i][j][3])
+                        #print("masking: ", str(cases[i][j][0])) #컬럼명
+                        #print("masking: ", i,j)
+                    elif cases[i][j][1] == "o_Categorical":
+                        tmp = DeIdentifier.O_Categorical(deData[cases[i][j][0]].to_frame(), cases[i][j][2]) #, cases[i][j][3])
+                        deData[cases[i][j][0]] = tmp[0]
+                        #print("o_cat: ", str(cases[i][j][0]))
+                        #print("o_cat: ", deData[str(cases[i][j][0])])
+                    elif cases[i][j][1] == "i_Categorical":
+                        deData[cases[i][j][0]] = DeIdentifier.I_Categorical(deData[cases[i][j][0]].to_frame(), cases[i][j][2], cases[i][j][3], cases[i][j][4])
+                        #print("o_cat: ", str(cases[i][j][0]))
+                        #print("o_cat: ", deData[str(cases[i][j][0])])
+
+
             
             #privacy model 적용
             """

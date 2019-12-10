@@ -560,18 +560,30 @@ class NonIdentifierWin(QMainWindow):
             self.methodTable_Level(self.SelectColumnName, methodname,  ("Suffled " + str(self.shufflenumber)),)
             del self.shufflenumber
         elif(methodname == "연속 변수 범주화"):
-            self.methodTable_Box(self.SelectColumnName, methodname, self.i_Categorical)
+            self.mainWin.ApplyMethod[self.SelectColumnName] = [[self.SelectColumnName, "i_Categorical", 0], [self.SelectColumnName, "i_Categorical", self.minVal, self.maxVal, self.gapVal]]
+            self.methodTable_Level(self.SelectColumnName, methodname, ("최소 : " + str(self.minVal) + ", 최대 : " + str(self.maxVal) + ", 간격 : " + str(self.gapVal)))
+            del self.minVal
+            del self.maxVal
+            del self.gapVal
         elif(methodname == "순위 변수 범주화"):
+            self.mainWin.ApplyMethod[self.SelectColumnName] = [[self.SelectColumnName, "o_Categorical", 0], [self.SelectColumnName, "o_Categorical", self.groupValue]]
             self.methodTable_Box(self.SelectColumnName, methodname, self.o_Categorical)
-        elif(methodname == "masking"): 
-            print("&&&")
+            del self.groupValue
+            del self.original_uniq
+        elif(methodname == "마스킹"):
             del self.mask_list[0]
+            self.mask_list = [rst for i, rst in enumerate(self.mask_list) if rst not in self.mask_list[:i]]#중복 제거
             self.methodTable_Box(self.SelectColumnName, methodname, self.mask_list)
-            tmp_list = ["masking", [0,0]]
-            for i in range(self.ui.LevelTable.rowCount()):
-                tmp_list.append([self.m_list[i][0], int(self.m_list[i][1])])
-                print(tmp_list)
-                self.mainWin.ApplyMethod[self.SelectColumnName] = tmp_list
+            masking_levels = [[self.SelectColumnName, "masking", 0]]
+            for i in range(self.ui.LevelTable.rowCount()): #get user's input values in LevelTable
+                masking_levels.append([self.SelectColumnName, "masking", self.m_list[i][0], int(self.m_list[i][1])])
+            masking_levels =[rst for i, rst in enumerate(masking_levels) if rst not in masking_levels[:i]] #중복제거
+            self.mainWin.ApplyMethod[self.SelectColumnName] = masking_levels #dict에 값 넣음
+            
+            del masking_levels
+            del self.m_list
+            del self.mask_list
+            
         elif(methodname == "통계 처리"):
             self.methodTable_Level(self.SelectColumnName, methodname, self.AggregationLevel)
         elif (methodname == "rounding"):
