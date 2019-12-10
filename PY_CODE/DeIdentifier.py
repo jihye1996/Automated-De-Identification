@@ -112,13 +112,13 @@ def O_Categorical(dataframe, groupValue):
             groupEle_tui = str(groupEle_tmp).replace("'","")
             groupCat_str.append(groupEle_tui)
         start = start + groupValue
-
+    
     del groupEle_tmp
 
     for idx, cat in enumerate(groupCat):
         for i in range(len(cat)):
             dataframe.loc[dataframe[dataframe.columns[0]] == str(cat[i]), dataframe.columns[0]] = str(groupCat_str[idx])
-
+    
     return dataframe, groupCat, groupCat_str
 
 def I_Categorical(dataframe, minVal=0, maxVal=0, gapVal=0):
@@ -140,32 +140,28 @@ def I_Categorical(dataframe, minVal=0, maxVal=0, gapVal=0):
     pass
 
     maxPrint = dataframe[dataframe.columns[0]].max()
-    paddingmax = ((maxPrint+9*pow(10, len(str(maxPrint))-1))//pow(10, len(str(maxPrint))))*pow(10, len(str(maxPrint)))
+    #paddingmax = ((maxPrint+9*pow(10, len(str(maxPrint))-1))//pow(10, len(str(maxPrint))))*pow(10, len(str(maxPrint)))
 
     dataframe.loc[dataframe[dataframe.columns[0]] < minVal, dataframe.columns[0]] = "[0, " + str(minVal) + ")"
-    dataframe.loc[beforeframe[beforeframe.columns[0]] >= maxVal, dataframe.columns[0]] = "[" + str(maxVal) + "," + str(paddingmax) + ")"
-
+    dataframe.loc[beforeframe[beforeframe.columns[0]] >= maxVal, dataframe.columns[0]] = "[" + str(maxVal) + ", )" # + str(paddingmax) + ")"
+    
     tmpList = []
     tmpVal = minVal
-
-    #idx = 1
+    
     while(tmpVal < maxVal):
         tmpList.append(tmpVal)
         tmpVal += gapVal
-        #idx += 1
     print(tmpList)
 
     for i in tmpList:
         dataframe.loc[((beforeframe[beforeframe.columns[0]] >= i) & (beforeframe[beforeframe.columns[0]] < i + gapVal)) == True, dataframe.columns[0]] = "[" + str(i) + "," + str(i+gapVal) + ")"
 
-        
     """
     ii = int((maxVal-minVal)/gapVal)
-            for i in range(ii):
+    for i in range(ii):
         dataframe.loc[((beforeframe[beforeframe.columns[0]]-minVal >= i*gapVal) & (beforeframe[beforeframe.columns[0]]-minVal < (i+1)*gapVal)) == True, dataframe.columns[0]] = "[" + str(minVal+i*gapVal) + "," + str(minVal+(i+1)*gapVal) + ")"
     #print(dataframe)
     """
-
     print(dataframe)
     print(time.time() -start)
     return dataframe

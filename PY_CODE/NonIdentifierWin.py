@@ -123,16 +123,10 @@ class NonIdentifierWin(QMainWindow):
             for j in range(self.rownum): #rendering data 
                 self.ui.afterTable.setItem(j,0,QTableWidgetItem(str(self.before[self.before.columns[0]][j])))
 
-            #self.before = mainwindow.originData[self.SelectColumnName].to_frame() #pull one column and convert list
-           
-            #self.ui.nextButton.clicked.connect(self.Masking)
-            #self.ui.cancelButton.clicked.connect(self.ui.hide)
-            #self.ui.backButton.clicked.connect(self.InitUI)
-            
             self.ui.addButton.clicked.connect(lambda: self.addLevel("masking", self.ui.LevelTable))
             self.ui.delButton.clicked.connect(lambda: self.delLevel(self.ui.LevelTable))
             self.ui.runButton.clicked.connect(self.Masking)
-            self.ui.finishButton.clicked.connect(lambda: self.finishButton("masking"))
+            self.ui.finishButton.clicked.connect(lambda: self.finishButton("마스킹"))
             self.ui.cancelButton.clicked.connect(self.ui.hide)
             self.ui.backButton.clicked.connect(self.InitUI)
         
@@ -233,17 +227,6 @@ class NonIdentifierWin(QMainWindow):
     #Shuffle() end
 
     """마스킹, 범주화"""
-    def usedbyMasking(self):
-        self.m_level = self.ui.maskingText.toPlainText()
-        self.m_index = self.ui.m_comboBox.currentIndex()
-        try:
-            self.m_level = int(self.m_level)
-            if(self.m_level<1):
-                self.m_level/0
-        except Exception:
-            QtWidgets.QMessageBox.about(self, 'Error','Input can only be a number')
-        pass
-
     def Categorical_next(self):
 
         if(self.ui.ordering.isChecked()):
@@ -255,14 +238,8 @@ class NonIdentifierWin(QMainWindow):
             self.ui.original.setHorizontalHeaderLabels(['values'])
 
             self.ui.categorical.setHorizontalHeaderLabels(['categorical'])
-            self.ui.categorical.setRowCount(len(self.original_uniq))
-
             self.original_uniq = list(self.original_uniq)
-            self.original_pop = self.original_uniq.copy()   # type: list
-            self.groupEle = []
-            self.str_groupEle = []
-            self.a = 0
-
+              
             for v in range(len(self.original_uniq)):
                 self.ui.original.setItem(v,0,QTableWidgetItem(str(self.original_uniq[v])))
             
@@ -273,10 +250,10 @@ class NonIdentifierWin(QMainWindow):
             self.ui = uic.loadUi("./UI/intervals_categorical.ui") #insert your UI path
             self.ui.show()
 
-            maxV = self.before[self.before.columns[0]].max()
-            self.paddingmax = ((maxV+9*pow(10, len(str(maxV))-1))//pow(10, len(str(maxV))))*pow(10, len(str(maxV)))
+            self.maxV = self.before[self.before.columns[0]].max()
+            #self.paddingmax = ((maxV+9*pow(10, len(str(maxV))-1))//pow(10, len(str(maxV))))*pow(10, len(str(maxV)))
 
-            self.i_catGraph(self.ui.i_catGraph, self.before[self.before.columns[0]], self.paddingmax)
+            self.i_catGraph(self.ui.i_catGraph, self.before[self.before.columns[0]], self.maxV)
             """
             self.ui.original.setRowCount(self.rownum) #Set Column Count s 
             self.ui.original.setHorizontalHeaderLabels(['original'])
@@ -301,7 +278,7 @@ class NonIdentifierWin(QMainWindow):
         self.groupCat_str = self.groupCat_str[2]
 
         self.ui.categorical.setRowCount(len(self.groupCat_str))
-        
+
         for cat in range(len(self.groupCat_str)):
             self.ui.categorical.setItem(cat, 0, QTableWidgetItem(self.groupCat_str[cat]))
 
@@ -327,24 +304,16 @@ class NonIdentifierWin(QMainWindow):
 
         self.after = self.before.copy()
         self.after = DeIdentifier.I_Categorical(self.after, self.minVal, self.maxVal, self.gapVal)
-
-
-        #self.AggregationbeforeGraph(self.before[self.before.columns[0]])
-
-
+    
     def i_catGraph(self, widget, data, maxVal):
-            
+        
         widget.canvas.axes.clear()
         widget.canvas.axes.hist(data, bins=50, rwidth=0.9, color='gray')
         widget.canvas.axes.set_xlim([0, maxVal])
         widget.canvas.axes.set_xlabel([self.SelectColumnName])
         widget.canvas.draw()
-             
+
     def Masking(self):
-        #self.ui = uic.loadUi("./UI/maskingData_review.ui") #insert your UI path
-        #self.ui.show()
-        #self.ui.maskingLevel.setRowCount(self.rownum) #Set Column Count s    
-        
         m_row = self.ui.LevelTable.rowCount()
         self.m_list = []
         for row in range(m_row):
@@ -373,10 +342,6 @@ class NonIdentifierWin(QMainWindow):
         self.ui.compareTab.setCurrentIndex(1)
         del self.after
         
-        #self.ui.backButton.clicked.connect(self.ui.hide)
-        #self.ui.finishButton.clicked.connect(lambda: self.finishButton("마스킹"))
-        #self.ui.cancelButton.clicked.connect(self.ui.hide)
-
     """마스킹, 범주화 끝"""
 
     #통계값 aggregation start
