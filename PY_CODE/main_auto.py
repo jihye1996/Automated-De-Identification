@@ -61,10 +61,13 @@ class MainWidget(QMainWindow):
         param: 0 or 1, swap_values[]
         1. Shuffle(재배열: 랜덤하게 섞기)
         param: 0 or 1, numbsfer
-        2. Suppression(범주화: 이항변수화, 이산형화)
-        param: ??, ??, ??, ??
+        2. Categorical(범주화)
+          2-1. o_Categorical(순위 변수 범주화)
+          param: 0 or 1, goupVal
+          2-2. i_Categorical(연속 변수 범주화)
+          param: 0 or 1, minVal, maxVal, gapVal
         3. Masking or Remove(마스킹 혹은 삭제)
-        param: level
+        param: 마스킹 문자, level
         4. Aggregation(통계값처리: 평균, 최빈, 최소, 최대)
         param: 통계처리인덱스(3), ??, ??, ??
         5. Rounding(라운딩: 올림, 내림, 반올림) #랜덤라운딩 삭제
