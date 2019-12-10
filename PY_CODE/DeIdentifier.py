@@ -121,67 +121,54 @@ def O_Categorical(dataframe, groupValue):
 
     return dataframe, groupCat, groupCat_str
 
-def Ordering_Categorical_finish(self):
-    self.after = self.before.copy()
-    self.o_Categorical = []
+def I_Categorical(dataframe, minVal=0, maxVal=0, gapVal=0):
+    start = time.time()
+    beforeframe = dataframe.copy()
     
-    for b in range(len(self.groupEle_ui)):
-        for z in range(len(self.groupEle[b])):
-            self.after.loc[self.after[self.SelectColumnName]==str((self.groupEle[b][z])), self.SelectColumnName] = str((self.groupEle_ui[b]))
-            for j in range(len(self.original_uniq)):
-                if self.original_uniq[j] == self.groupEle[b][z]:
-                    self.o_Categorical.append(str(self.original_uniq[j]) + "  " + str(self.groupEle_ui[b]))
-    self.finishButton("순위 변수 범주화")
-
-def Intervals_Categorical(self):
-    self.after = self.before.copy()
-
-    self.i_Categorical = []
-
-    self.ui.categorical.setRowCount(self.rownum) #Set Column Count s 
-    self.ui.categorical.setHorizontalHeaderLabels(['categorical'])
-
-    minValue = self.ui.minText.toPlainText()
-    maxValue = self.ui.maxText.toPlainText()
-    interValue = self.ui.interText.toPlainText()
-
     try:
-        minValue = int(minValue)
-        maxValue = int(maxValue)
-        interValue = int(interValue)
-        if(minValue<1):
-            minValue/0
-        elif(maxValue<1):
-            maxValue/0
-        elif(interValue<1):
-            interValue/0
+        minVal = int(minVal)
+        maxVal = int(maxVal)
+        gapVal = int(gapVal)
+        if(minVal<1):
+            minVal/0
+        elif(maxVal<1):
+            maxVal/0
+        elif(gapVal<1):
+            gapVal/0
     except Exception:
-        QtWidgets.QMessageBox.about(self, 'Error','Input can only be a number')
+        QtWidgets.QMessageBox.about(self, 'Error','숫자만 입력할 수 있습니다.')
     pass
+
+    maxPrint = dataframe[dataframe.columns[0]].max()
+    paddingmax = ((maxPrint+9*pow(10, len(str(maxPrint))-1))//pow(10, len(str(maxPrint))))*pow(10, len(str(maxPrint)))
+
+    dataframe.loc[dataframe[dataframe.columns[0]] < minVal, dataframe.columns[0]] = "[0, " + str(minVal) + ")"
+    dataframe.loc[beforeframe[beforeframe.columns[0]] >= maxVal, dataframe.columns[0]] = "[" + str(maxVal) + "," + str(paddingmax) + ")"
+
+    tmpList = []
+    tmpVal = minVal
+
+    #idx = 1
+    while(tmpVal < maxVal):
+        tmpList.append(tmpVal)
+        tmpVal += gapVal
+        #idx += 1
+    print(tmpList)
+
+    for i in tmpList:
+        dataframe.loc[((beforeframe[beforeframe.columns[0]] >= i) & (beforeframe[beforeframe.columns[0]] < i + gapVal)) == True, dataframe.columns[0]] = "[" + str(i) + "," + str(i+gapVal) + ")"
+
         
-    for j in range(self.rownum):
-        if self.before[self.before.columns[0]][j] < minValue:
-            self.after[self.after.columns[0]][j] = "<" + str(minValue)
-            self.i_Categorical.append(str(self.before[self.before.columns[0]][j]) + "  " + str(self.after[self.after.columns[0]][j]))
-            self.ui.categorical.setItem(j,0,QTableWidgetItem(str(self.after[self.after.columns[0]][j])))
-        elif self.before[self.before.columns[0]][j] >= maxValue:
-            self.after[self.after.columns[0]][j] = ">= " + str(maxValue)
-            self.i_Categorical.append(str(self.before[self.before.columns[0]][j]) + "  " + str(self.after[self.after.columns[0]][j]))
-            self.ui.categorical.setItem(j,0,QTableWidgetItem(str(self.after[self.after.columns[0]][j])))
-        else:
-            ii = int((maxValue-minValue)/interValue)
+    """
+    ii = int((maxVal-minVal)/gapVal)
             for i in range(ii):
-                if self.before[self.before.columns[0]][j]-minValue >= i*interValue and self.before[self.before.columns[0]][j]-minValue < (i+1)*interValue:
-                    self.after[self.after.columns[0]][j] = "[" + str(minValue+i*interValue) + "," + str(minValue+(i+1)*interValue) + ")"
-                    self.i_Categorical.append(str(self.before[self.before.columns[0]][j]) + "  " + str(self.after[self.after.columns[0]][j]))
-                    self.ui.categorical.setItem(j,0,QTableWidgetItem(str(self.after[self.after.columns[0]][j])))
-            
+        dataframe.loc[((beforeframe[beforeframe.columns[0]]-minVal >= i*gapVal) & (beforeframe[beforeframe.columns[0]]-minVal < (i+1)*gapVal)) == True, dataframe.columns[0]] = "[" + str(minVal+i*gapVal) + "," + str(minVal+(i+1)*gapVal) + ")"
+    #print(dataframe)
+    """
 
-#categorical(범주화)
-def Categorical(dataframe, c_index):
-    #need to implement
-    return dataframe;
-
+    print(dataframe)
+    print(time.time() -start)
+    return dataframe
 
 #aggregation(통계처리)
 def Aggregation(dataframe, index, method):

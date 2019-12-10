@@ -273,6 +273,11 @@ class NonIdentifierWin(QMainWindow):
             self.ui = uic.loadUi("./UI/intervals_categorical.ui") #insert your UI path
             self.ui.show()
 
+            maxV = self.before[self.before.columns[0]].max()
+            self.paddingmax = ((maxV+9*pow(10, len(str(maxV))-1))//pow(10, len(str(maxV))))*pow(10, len(str(maxV)))
+
+            self.i_catGraph(self.ui.i_catGraph, self.before[self.before.columns[0]], self.paddingmax)
+            """
             self.ui.original.setRowCount(self.rownum) #Set Column Count s 
             self.ui.original.setHorizontalHeaderLabels(['original'])
 
@@ -281,7 +286,7 @@ class NonIdentifierWin(QMainWindow):
 
             self.ui.categorical.setRowCount(self.rownum) #Set Column Count s 
             self.ui.categorical.setHorizontalHeaderLabels(['categorical'])
-            
+            """
             self.ui.runButton.clicked.connect(self.Intervals_Categorical)
             self.ui.finishButton.clicked.connect(lambda: self.finishButton("연속 변수 범주화"))
             self.ui.cancelButton.clicked.connect(self.ui.hide)
@@ -314,47 +319,26 @@ class NonIdentifierWin(QMainWindow):
         self.finishButton("순위 변수 범주화")
 
     def Intervals_Categorical(self):
+        #i_num = self.ui.original.rowCount()
+
+        self.minVal = self.ui.minText.toPlainText()
+        self.maxVal = self.ui.maxText.toPlainText()
+        self.gapVal = self.ui.interText.toPlainText()
+
         self.after = self.before.copy()
+        self.after = DeIdentifier.I_Categorical(self.after, self.minVal, self.maxVal, self.gapVal)
 
-        self.i_Categorical = []
 
-        self.ui.categorical.setRowCount(self.rownum) #Set Column Count s 
-        self.ui.categorical.setHorizontalHeaderLabels(['categorical'])
+        #self.AggregationbeforeGraph(self.before[self.before.columns[0]])
 
-        minValue = self.ui.minText.toPlainText()
-        maxValue = self.ui.maxText.toPlainText()
-        interValue = self.ui.interText.toPlainText()
 
-        try:
-            minValue = int(minValue)
-            maxValue = int(maxValue)
-            interValue = int(interValue)
-            if(minValue<1):
-                minValue/0
-            elif(maxValue<1):
-                maxValue/0
-            elif(interValue<1):
-                interValue/0
-        except Exception:
-            QtWidgets.QMessageBox.about(self, 'Error','Input can only be a number')
-        pass
+    def i_catGraph(self, widget, data, maxVal):
             
-        for j in range(self.rownum):
-            if self.before[self.before.columns[0]][j] < minValue:
-                self.after[self.after.columns[0]][j] = "<" + str(minValue)
-                self.i_Categorical.append(str(self.before[self.before.columns[0]][j]) + "  " + str(self.after[self.after.columns[0]][j]))
-                self.ui.categorical.setItem(j,0,QTableWidgetItem(str(self.after[self.after.columns[0]][j])))
-            elif self.before[self.before.columns[0]][j] >= maxValue:
-                self.after[self.after.columns[0]][j] = ">= " + str(maxValue)
-                self.i_Categorical.append(str(self.before[self.before.columns[0]][j]) + "  " + str(self.after[self.after.columns[0]][j]))
-                self.ui.categorical.setItem(j,0,QTableWidgetItem(str(self.after[self.after.columns[0]][j])))
-            else:
-                ii = int((maxValue-minValue)/interValue)
-                for i in range(ii):
-                    if self.before[self.before.columns[0]][j]-minValue >= i*interValue and self.before[self.before.columns[0]][j]-minValue < (i+1)*interValue:
-                        self.after[self.after.columns[0]][j] = "[" + str(minValue+i*interValue) + "," + str(minValue+(i+1)*interValue) + ")"
-                        self.i_Categorical.append(str(self.before[self.before.columns[0]][j]) + "  " + str(self.after[self.after.columns[0]][j]))
-                        self.ui.categorical.setItem(j,0,QTableWidgetItem(str(self.after[self.after.columns[0]][j])))
+        widget.canvas.axes.clear()
+        widget.canvas.axes.hist(data, bins=50, rwidth=0.9, color='gray')
+        widget.canvas.axes.set_xlim([0, maxVal])
+        widget.canvas.axes.set_xlabel([self.SelectColumnName])
+        widget.canvas.draw()
              
     def Masking(self):
         #self.ui = uic.loadUi("./UI/maskingData_review.ui") #insert your UI path
