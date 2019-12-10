@@ -111,9 +111,9 @@
    <widget class="QWidget" name="horizontalLayoutWidget_2">
     <property name="geometry">
      <rect>
-      <x>180</x>
+      <x>360</x>
       <y>570</y>
-      <width>691</width>
+      <width>511</width>
       <height>61</height>
      </rect>
     </property>
@@ -154,32 +154,6 @@
        </property>
        <property name="text">
         <string>다음 &gt;</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <spacer name="horizontalSpacer_5">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item>
-      <widget class="QPushButton" name="finishButton">
-       <property name="font">
-        <font>
-         <family>맑은 고딕</family>
-         <pointsize>9</pointsize>
-        </font>
-       </property>
-       <property name="text">
-        <string>완료</string>
        </property>
       </widget>
      </item>
