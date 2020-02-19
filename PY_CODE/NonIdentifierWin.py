@@ -334,7 +334,7 @@ class NonIdentifierWin(QMainWindow):
         self.ui.afterTable.setColumnCount(row+2)   
         for i in range(row+1): #rendering data
             self.after = self.before.copy()
-            self.after = DeIdentifier.Masking(self.after, self.m_list[i][0], int(self.m_list[i][1]))  # dataframe, m_index, m_level
+            self.after = DeIdentifier.Masking(self.after, self.m_list[i][0], int(self.m_list[i][1]))[0]  # dataframe, m_index, m_level
             for j in range(self.rownum):
                 self.ui.afterTable.setItem(j,i+1,QTableWidgetItem(str(self.after[self.after.columns[0]][j]))) #행, 컬럼
             self.mask_list.append(self.m_list[i][0] + ", level"+ (self.m_list[i][1]))
@@ -483,16 +483,16 @@ class NonIdentifierWin(QMainWindow):
         del self.after
     #data Rounding end
 
-    def addLevel(self, method, table): #add 버튼 누르면 프라이버시 모델 설정 가능
+    def addLevel(self, method, table): #add 버튼 누르면 원하는 메소드 방법 세부 설정 가능
         if(method == "rounding"):
-            privacy_list = ["올림", "내림", "반올림", "랜덤"]
+            privacy_list = ["올림", "내림", "반올림"]
             table.insertRow(table.rowCount())
             self.addCombo = QComboBox() 
             self.addCombo.addItems(privacy_list)
             table.setCellWidget(table.rowCount()-1, 0, self.addCombo)
 
         elif(method == "masking"):
-            privacy_list = ["*", "0", "( )"]
+            privacy_list = ["*(front)", "*(back)", "0(front)", "0(back)", "( )(front)", "( )(back)"]
             table.insertRow(table.rowCount())
             self.addCombo = QComboBox() 
             self.addCombo.addItems(privacy_list)

@@ -9,6 +9,7 @@ from random import shuffle
 import numpy as np
 import pandas as pd
 import math
+from itertools import product
 import pandas.api.types as ptypes
 from pandas import Series, DataFrame
 from PyQt5.QtCore import pyqtSlot, Qt
@@ -32,11 +33,12 @@ plt.rc('axes', unicode_minus=False) #한글 깨짐 방지
 sys.path.append("./UI") # insert your path
 sys.path.append("./PY_CODE")
 import mplwidget
-from PandasModel import PandasModel # for table model setting
 
+from PandasModel import PandasModel # for table model setting
 #import window class
 from ImportDataWin import ImportDataWindow
-from PrivacyModel import PrivacyModel
+from NonIdentifierWin import NonIdentifierWin
+import DeIdentifier
 
 
 """
@@ -48,7 +50,6 @@ global Final_Output # Run 함수에서 프라이버시 모델 적용을 위해 �
 사용
 self.originData: 원본데이터
 self.deData: 비식별 데이터
-self.Final_Output: run 함수에서 사용
 """
 
 
@@ -60,10 +61,13 @@ class MainWidget(QMainWindow):
         param: 0 or 1, swap_values[]
         1. Shuffle(재배열: 랜덤하게 섞기)
         param: 0 or 1, numbsfer
-        2. Suppression(범주화: 이항변수화, 이산형화)
-        param: ??, ??, ??, ??
+        2. Categorical(범주화)
+          2-1. o_Categorical(순위 변수 범주화)
+          param: 0 or 1, goupVal
+          2-2. i_Categorical(연속 변수 범주화)
+          param: 0 or 1, minVal, maxVal, gapVal
         3. Masking or Remove(마스킹 혹은 삭제)
-        param: level
+        param: 마스킹 문자, level
         4. Aggregation(통계값처리: 평균, 최빈, 최소, 최대)
         param: 통계처리인덱스(3), ??, ??, ??
         5. Rounding(라운딩: 올림, 내림, 반올림) #랜덤라운딩 삭제
@@ -75,7 +79,7 @@ class MainWidget(QMainWindow):
     5. 기타
      - ModifyWin에서 완료버튼 수정하기
     """
-    
+    5
     def __init__(self):
         super().__init__()
         self.ui = uic.loadUi("./UI/NonIdentifierUI.ui") #insert your UI path
@@ -83,16 +87,17 @@ class MainWidget(QMainWindow):
         self.ui.show()        
 
         self.originData = [] #원본데이터
-        self.deData = [] #비식별데이터
         self.InitializingGraphUI() #CorrelationGraph of tab2 초기화 
+        self.ui.analysis_result.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
         self.ui.INPUTtable.clicked.connect(self.viewClicked) # cell 클릭 시 식별자, 준식별자 등 radio button checked 
         self.ui.actionimport_data.triggered.connect(self.ImportData) #importData from csv
         self.ui.actionsave_data.triggered.connect(self.SaveFileDialog) #export_data in menuBar, call save data event
         self.ui.actionEXIT.triggered.connect(self.CloseWindow) #exit in menuBar, call exit event
 
-        self.ui.actionRun.triggered.connect(self.run) # TODO: 6. run 함수 구현 필요
-        self.ui.actionNonIdentifier.triggered.connect(self.NonIdentifierMethod) # TODO: 3. 비식별화 함수 추가중
+        self.ui.actionRun.triggered.connect(self.run)
+        self.ui.analysis_result.cellDoubleClicked.connect(lambda: self.DataRendering(self.ui.analysis_result.currentRow())) #탭 3으로 이동
+        self.ui.actionNonIdentifier.triggered.connect(self.NonIdentifierWindow) 
 
         #식별자 radio button change event
         self.id_dict = {}
@@ -107,52 +112,61 @@ class MainWidget(QMainWindow):
         
         #for methodTableWidget
         self.methodCol_List = {}
+
+        #applied method dictionary
+        self.ApplyMethod = {}
         
 
     def ImportData(self):
         self.importwindow = ImportDataWindow(self)
         
+    """
+    TODO: 에러 수정
+    - 데이터 없을 때 클릭하면 에러 발생 -> 수정완료
+    - col = self.col -> active cell col index -> 수정중
+        : col = self.ui.INPUTtable.selectionModel().selectedColumns()
+    """
+    def NonIdentifierWindow(self): 
+        
+        try:
+            col = self.col
+        except AttributeError as e:
+            print("error")
+        else:
+            if(self.ui.typeTable.item(col, 1).text() != 'int64'): #int64만 수치데이터 method 사용
+                type = 1
+            else:
+                type = 0
+            
+            print(self.originData[self.originData.columns[col]].to_frame())
+            self.NonIdentifierwindow = NonIdentifierWin(mainwindow, self.originData[self.originData.columns[col]].to_frame(),type)
 
-    
-    def NonIdentifierMethod(self):
-        col = self.col
-        if col > len(self.originData.columns)-1 or len(self.originData.columns) <1 : # if value is null, do nothing
-            print('cell has nothing (NonIdentifierMethod)')
-        else: #if not null, radio button check
-            self.newWindow = NonIdentifierMethod(col)
-    
-    
     def viewClicked(self, item): #cell 클릭시 식별자 radio button checked
         self.col = item.column()
         self.row = item.row()
 
         print("_cellclicked... ", self.row, self.col) #클릭 cell 확인
 
-        if self.col > len(self.originData.columns)-1 or len(self.originData.columns) <1: # if value is null, do nothing
-            print('Cell is empty')
-        else: #if not null, radio button check
-            if(self.ui.typeTable.item(self.col,2).text() == '식별자'):
-                print("식별자")
-                self.ui.ID.setChecked(True)
-                self.setTypeListWidget(self.id_dict['식별자'], self.col)
-            elif(self.ui.typeTable.item(self.col,2).text() == '준식별자'):
-                print("준식별자")
-                self.ui.QD.setChecked(True)
-                self.setTypeListWidget(self.id_dict['준식별자'], self.col)
-            elif(self.ui.typeTable.item(self.col,2).text() == '민감정보'):
-                print("민감정보")
-                self.ui.SA.setChecked(True)
-                self.setTypeListWidget(self.id_dict['민감정보'], self.col)
-            elif(self.ui.typeTable.item(self.col,2).text() == '일반정보'):
-                print("일반정보")
-                self.ui.GI.setChecked(True)
-                self.setTypeListWidget(self.id_dict['일반정보'], self.col)
+        if(self.ui.typeTable.item(self.col,2).text() == '식별자'):
+            print("식별자")
+            self.ui.ID.setChecked(True)
+            self.setTypeListWidget(self.id_dict['식별자'], self.col)
+        elif(self.ui.typeTable.item(self.col,2).text() == '준식별자'):
+            print("준식별자")
+            self.ui.QD.setChecked(True)
+            self.setTypeListWidget(self.id_dict['준식별자'], self.col)
+        elif(self.ui.typeTable.item(self.col,2).text() == '민감정보'):
+            print("민감정보")
+            self.ui.SA.setChecked(True)
+            self.setTypeListWidget(self.id_dict['민감정보'], self.col)
+        elif(self.ui.typeTable.item(self.col,2).text() == '일반정보'):
+            print("일반정보")
+            self.ui.GI.setChecked(True)
+            self.setTypeListWidget(self.id_dict['일반정보'], self.col)
     
     def setTables(self, types, combo_id, inputdata): #import 한 데이터 저장
         self.originData = inputdata.copy()
-        self.deData = inputdata.copy()
         self.model = PandasModel(self.originData)
-        #self.ui.INPUTtable.resizeColumnsToContents()
         self.ui.INPUTtable.setModel(self.model)
 
         rownum = len(self.originData.index)
@@ -232,38 +246,121 @@ class MainWidget(QMainWindow):
         self.ui.privacyTable.removeRow(self.ui.privacyTable.currentRow())
 
     def run(self):
-        self.privacy = PrivacyModel(self)
-        self.Final_Output = self.deData.copy() #비식별화만 된 데이트를 프라이버시 모델에 입력
+        cases = list(product(*self.ApplyMethod.values()))
+        del cases[0] #0은 원본데이터와 동일하므로 삭제
+        print(len(cases))
+        print(cases)
+        self.ui.analysis_result.setRowCount(len(cases))
 
-        #프라이버시 모델 적용
+        #준식별자만 추출
+        qd_list = []
+        for i in range(mainwindow.ui.typeTable.rowCount()): #준식별자 컬럼만 리스트에 삽입
+            if(mainwindow.ui.typeTable.item(i,2).text() == '준식별자'):
+                qd_list.append(mainwindow.ui.typeTable.item(i, 0).text())
+        
+
+        start = time.time()
+        if (len(qd_list)<=0):
+            QtWidgets.QMessageBox.about(self, 'Error','준식별자가 없습니다.')
+        else:
+            for i in range(len(cases)): #케이스 개수만큼
+                self.deData = self.originData.copy() 
+                NumericColumns = []
+                DiscreteColumnsInformationLoss = 0 #마스킹이나 범주화 정보 손실
+                for j in range(len(cases[i])): # i번째 케이스에서 비식별처리 진행
+                    if cases[i][j][2] != 0 :
+                        if cases[i][j][1] == "swap":
+                            self.deData[str(cases[i][j][0])] = DeIdentifier.Swap(self.deData[str(cases[i][j][0])].to_frame(), cases[i][j][2])
+                            #print("swap: ", str(cases[i][j][0]))
+                            #print("swap: ", deData[str(cases[i][j][0])])
+                            NumericColumns.append(cases[i][j][0])
+                        elif cases[i][j][1] == "shuffle":
+                            self.deData[cases[i][j][0]] = DeIdentifier.Shuffle(self.deData[cases[i][j][0]].to_frame(), cases[i][j][2])
+                            #print("shuffle: ", str(cases[i][j][0]))
+                            #print("shuffle: ", deData[str(cases[i][j][0])])
+                            NumericColumns.append(cases[i][j][0])
+                        elif cases[i][j][1] == "rounding":
+                            self.deData[cases[i][j][0]] = DeIdentifier.Rounding(self.deData[cases[i][j][0]].to_frame(), cases[i][j][2], cases[i][j][3])
+                            #print("rounding: ", str(cases[i][j][0]))
+                            #print("rouding: ", deData[str(cases[i][j][0])])
+                            NumericColumns.append(cases[i][j][0])
+                        elif cases[i][j][1] == "aggregation":
+                            self.deData[cases[i][j][0]] = DeIdentifier.Aggregation(self.deData[cases[i][j][0]].to_frame(), cases[i][j][2], cases[i][j][3])
+                            #print("aggregation: ", str(cases[i][j][0]))
+                            #print("aggregation: ", deData[str(cases[i][j][0])])
+                            NumericColumns.append(cases[i][j][0])
+                        elif cases[i][j][1] == "masking":
+                            contained_MC = True
+                            tmp = DeIdentifier.Masking(self.deData[cases[i][j][0]].to_frame(), cases[i][j][2], cases[i][j][3])
+                            #print("masking: ", str(cases[i][j][0])) #컬럼명
+                            #print("masking: ", i,j)
+                            self.deData[cases[i][j][0]] = tmp[0]
+                            sum = tmp[1]
+                            DiscreteColumnsInformationLoss += sum
+                        elif cases[i][j][1] == "o_Categorical":
+                            contained_MC = True
+                            tmp = DeIdentifier.O_Categorical(self.deData[cases[i][j][0]].to_frame(), cases[i][j][2]) #, cases[i][j][3])
+                            self.deData[cases[i][j][0]] = tmp[0]
+                            #print("o_cat: ", str(cases[i][j][0]))
+                            #print("o_cat: ", deData[str(cases[i][j][0])])
+                            sum = tmp[3]
+                            DiscreteColumnsInformationLoss += sum #정보 손실 측정
+                        elif cases[i][j][1] == "i_Categorical":
+                            contained_MC = True
+                            tmp = DeIdentifier.I_Categorical(self.deData[cases[i][j][0]].to_frame(), cases[i][j][2], cases[i][j][3], cases[i][j][4])
+                            #print("o_cat: ", str(cases[i][j][0]))
+                            #print("o_cat: ", deData[str(cases[i][j][0])])
+                            self.deData[cases[i][j][0]] = tmp[0]
+                            sum = tmp[1]
+                            DiscreteColumnsInformationLoss += sum #정보 손실 측정
+                        self.Final_Output = self.deData.copy()
+                        #self.privacyModel(qd_list, False)
+
+
+                self.ui.analysis_result.setItem(i, 0, QTableWidgetItem(str(cases[i]))) #setitem 컬럼이름 
+                self.ui.analysis_result.setItem(i, 1, QTableWidgetItem(str(self.calContinuousColumns(NumericColumns)))) #setitem 컬럼이름 
+                self.ui.analysis_result.setItem(i, 2, QTableWidgetItem(str(DiscreteColumnsInformationLoss))) #setitem 컬럼이름 
+                self.ui.analysis_result.setItem(i, 3, QTableWidgetItem(str(DeIdentifier.Calculate_risk(self.Final_Output, qd_list)))) #setitem 컬럼이름 
+
+
+            self.ui.tabWidget.setCurrentIndex(1) #탭 전환
+        
+        print("time", time.time()-start)
+
+
+    def privacyModel(self, qtList, flag):
         for r in range(self.ui.privacyTable.rowCount()):
             widget = self.ui.privacyTable.cellWidget(r, 0)
             if isinstance(widget, QComboBox):
                 current_value = widget.currentText()
-                if(current_value == 'K'):
-                    number = self.ui.privacyTable.item(r, 1).text()
-                    self.Final_Output = self.privacy.K_anonymity(self.Final_Output, int(number))
-                elif(current_value == 'L'):
-                    number = self.ui.privacyTable.item(r, 1).text()
-                    columnName = self.ui.privacyTable.cellWidget(r, 2).currentText()
-                    self.Final_Output = self.privacy.L_diversity(self.Final_Output, number, columnName)
-                elif(current_value == 'T'):
-                    print(self.ui.privacyTable.item(r, 1).text())
-        
-        print("dtypes",self.originData.dtypes)
-        print("columns", self.originData.columns)
+                if(current_value == 'K'): #k익명성 있으면
+                    number = self.ui.privacyTable.item(r, 1).text() #k값
+                    self.Final_Output = DeIdentifier.K_anonymity_Without_Masking_Category(self.deData, qtList, int(number))    
+                elif(current_value == 'L'): #l 다양성 있으면
+                    number = self.ui.privacyTable.item(r, 1).text() #l 값
+                    columnName = self.ui.privacyTable.cellWidget(r, 2).currentText() #해당 컬럼
+                    self.Final_Output = DeIdentifier.L_diversity_Without_Masking_Category(self.deData, qtList, int(number), columnName)
 
-        """
-        #데이터 유용성 데이터 부분_코사인 유사도 계산
+        
+    #연속형 변수 정보 손실
+    def calContinuousColumns(self, NumericColumns):
+        #데이터 유용성 데이터 부분
+        #한국인터넷진흥원, 개인정보 비식별 기술 경진대회 설명회 (n.p.: 한국인터넷진흥원, n.d.), 8.
         #string형 제외
-        for col in range(len(self.originData.columns)):
-            #print(col)
-            if str(self.originData.dtypes[col]) == "object":
-                print(self.originData.dtypes[col])
-                originData_int = self.originData.drop([self.originData.columns[col]], axis =1)
-                finalData_int = self.Final_Output.drop([self.originData.columns[col]], axis =1)
+        originData_int = pd.DataFrame()
+        finalData_int = pd.DataFrame()
+
+        for col in NumericColumns:
+            finalData_int[col] = self.deData[col]
+
+        
+        finalData_int = finalData_int.select_dtypes(exclude=['object'])
+
+        for col in finalData_int.columns:
+            originData_int[col] = finalData_int[col]
 
         print("@@",originData_int.columns)
+        print("@@",finalData_int.columns)
 
         origin = originData_int.values.tolist() 
         final = finalData_int.values.tolist() 
@@ -285,7 +382,7 @@ class MainWidget(QMainWindow):
             Ja_val = 0
 
             for j in range(len(origin[0])):
-                befMoPlus += pow(origin[i][j],2)
+                befMoPlus += pow(origin[i][j], 2)
                 aftMoPlus += pow(final[i][j],2)
                 Ja_val += origin[i][j] * final[i][j]
                 #print(bef_val[i][j], "*", aft_val[i][j], "=", bef_val[i][j] * aft_val[i][j])
@@ -299,40 +396,63 @@ class MainWidget(QMainWindow):
             usab_ave += usab[i]
 
         #print(usab)
-        usab_ave = usab_ave / len(origin)
-        print(str(usab_ave)+"%")
+        #usab_ave = usab_ave / len(origin)
+        #print(str(usab_ave))
+        if len(usab) == 0:
+            return 0
+        else: 
+            return usab_ave
 
-        self.ui.tabWidget.setCurrentIndex(1)
-        #self.ui.usab_txt.setText("Usability : " + str(usab_ave)+"%")
-        """
-        
+            
+
+    def DataRendering(self, rowNumber):
         #tab2의 before table setItem
         BeforeDataModel = PandasModel(self.originData)
         self.ui.INPUTDATAtable.setModel(BeforeDataModel)
-        """colnum = len(tab1_input.columns) # get column count
-        rownum = len(tab1_input.index) # get row count
-        self.ui.INPUTDATAtable.setColumnCount(colnum) #Set Column Count
-        self.ui.INPUTDATAtable.setRowCount(rownum) #Set Column Count     
-        self.ui.INPUTDATAtable.setHorizontalHeaderLabels(tab1_input.columns.tolist())
 
-        for i in range(colnum):
-            for j in range(rownum): #rendering data (inputtable of Tab2)
-                self.ui.INPUTDATAtable.setItem(j,i,QTableWidgetItem(str(tab1_input[tab1_input.columns[i]][j])))"""
-        
+        cases = list(product(*self.ApplyMethod.values()))
+        del cases[0] #0은 원본데이터와 동일하므로 삭제
+
+        #준식별자만 추출
+        qd_list = []
+        for i in range(mainwindow.ui.typeTable.rowCount()): #준식별자 컬럼만 리스트에 삽입
+            if(mainwindow.ui.typeTable.item(i,2).text() == '준식별자'):
+                qd_list.append(mainwindow.ui.typeTable.item(i, 0).text())
+
+        i = rowNumber
+        for j in range(len(cases[i])): # i번째 케이스에서 비식별처리 진행
+            if cases[i][j][2] != 0 :
+                if cases[i][j][1] == "swap":
+                    self.deData[str(cases[i][j][0])] = DeIdentifier.Swap(self.deData[str(cases[i][j][0])].to_frame(), cases[i][j][2])
+                elif cases[i][j][1] == "shuffle":
+                    self.deData[cases[i][j][0]] = DeIdentifier.Shuffle(self.deData[cases[i][j][0]].to_frame(), cases[i][j][2])
+
+                elif cases[i][j][1] == "rounding":
+                    self.deData[cases[i][j][0]] = DeIdentifier.Rounding(self.deData[cases[i][j][0]].to_frame(), cases[i][j][2], cases[i][j][3])
+                elif cases[i][j][1] == "aggregation":
+                    self.deData[cases[i][j][0]] = DeIdentifier.Aggregation(self.deData[cases[i][j][0]].to_frame(), cases[i][j][2], cases[i][j][3])
+                elif cases[i][j][1] == "masking":
+                    contained_MC = True
+                    tmp = DeIdentifier.Masking(self.deData[cases[i][j][0]].to_frame(), cases[i][j][2], cases[i][j][3])
+                    self.deData[cases[i][j][0]] = tmp[0]
+                elif cases[i][j][1] == "o_Categorical":
+                    contained_MC = True
+                    tmp = DeIdentifier.O_Categorical(self.deData[cases[i][j][0]].to_frame(), cases[i][j][2]) #, cases[i][j][3])
+                    self.deData[cases[i][j][0]] = tmp[0]
+                    sum = tmp[3]
+                elif cases[i][j][1] == "i_Categorical":
+                    contained_MC = True
+                    tmp = DeIdentifier.I_Categorical(self.deData[cases[i][j][0]].to_frame(), cases[i][j][2], cases[i][j][3], cases[i][j][4])
+                    self.deData[cases[i][j][0]] = tmp[0]
+                    sum = tmp[1]
+
+                self.Final_Output = self.deData.copy()
+                self.privacyModel(qd_list, False)
+
         AfterDataModel = PandasModel(self.Final_Output)
         self.ui.OUTPUTDATAtable.setModel(AfterDataModel)
-        """colnum = len(Final_Output.columns) # get column count
-        rownum = len(Final_Output.index) # get row count
-        self.ui.OUTPUTDATAtable.setColumnCount(colnum) #Set Column Count  
-        self.ui.OUTPUTDATAtable.setRowCount(rownum) #Set Column Count     
-        self.ui.OUTPUTDATAtable.setHorizontalHeaderLabels(Final_Output.columns.tolist())
-
-        for i in range(colnum):
-            for j in range(rownum): #rendering data (outputtable of Tab2)
-                self.ui.OUTPUTDATAtable.setItem(j,i,QTableWidgetItem(str(Final_Output[Final_Output.columns[i]][j])))"""
-        
         self.setGraph()
-        #self.ui.tabWidget.setCurrentIndex(2) #탭 전환
+        self.ui.tabWidget.setCurrentIndex(2) #탭 전환
 
 
     def InitializingGraphUI(self):
@@ -350,7 +470,10 @@ class MainWidget(QMainWindow):
     def setGraph(self):
         #set graph
         graphcount = self.originData.copy()
-        self.correlation_beforegraph(len(graphcount.columns), self.originData)
+        for col in graphcount.columns:
+            graphcount[col] = pd.Categorical(graphcount[col]).codes
+        
+        self.correlation_beforegraph(len(graphcount.columns), graphcount)
         self.max = 0
         list = []
         lenth = self.ui.typeTable.rowCount() #컬럼개수
@@ -365,6 +488,9 @@ class MainWidget(QMainWindow):
         
 
         graphcount = self.Final_Output.copy()
+        for col in graphcount.columns:
+            graphcount[col] = pd.Categorical(graphcount[col]).codes
+
         self.correlation_aftergraph(len(graphcount.columns), graphcount)
         list = []
         lenth = self.ui.typeTable.rowCount() #컬럼개수
@@ -420,8 +546,9 @@ class MainWidget(QMainWindow):
         widget.canvas.axes.set_ylim([0, max])
         widget.canvas.draw()
 
-
     def SaveFileDialog(self):
+        output = pd.DataFrame()
+
         options = QFileDialog.Options()
         self.fileName, _ = QFileDialog.getSaveFileName(self,"QFileDialog.getOpenFileName()", "",
                                                   "All Files (*);;Python Files (*.py);; CSV Files(*.csv);; Excel Files(*.xlsx)", 
@@ -430,10 +557,13 @@ class MainWidget(QMainWindow):
         if self.fileName:
             try:
                 output = self.Final_Output.copy()
+                print(output)
+                print("try")
             except:
-                output = self.deData.copy()
+                output = self.originData.copy()
+                print(output)
+                print("catch")
 
-            print(output)
             output.to_csv(self.fileName, encoding='ms949', index=False)  
 
     def CloseWindow(self, event):
@@ -443,705 +573,6 @@ class MainWidget(QMainWindow):
                                      QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
         if close == QtWidgets.QMessageBox.Yes:
             event.accept()
-
-
-
-#nonidentifierMethod window
-class NonIdentifierMethod(QMainWindow):
-    """
-    self.originData: 원본데이터
-    self.deData: 비식별 데이터
-    """
-
-    def __init__(self, col=0, parent=None):
-        super(NonIdentifierMethod, self).__init__(parent)
-        self.SelectColumn = col
-        self.SelectColumnName = mainwindow.originData.columns.values[col]
-        self.InitUI()
-
-    def InitUI(self):
-        self.ui = uic.loadUi("./UI/SelectNonIdentifierMethod.ui") #insert your UI path
-        self.ui.show()
-
-        self.before = mainwindow.originData[mainwindow.originData.columns[self.SelectColumn]].to_frame() #pull one column and convert list
-        self.rownum = len(self.before.index) # get row count
-        self.colnum = len(self.before.columns) # get column count
-
-        if(mainwindow.ui.typeTable.item(self.SelectColumn, 1).text() != 'int64'): #int64만 수치데이터 method 사용
-            self.ui.Method5.setEnabled(False)
-            self.ui.Method6.setEnabled(False)
-
-        self.ui.nextButton.clicked.connect(self.NextButton) #비식별화 방식 선택(6개 중 택 1 가능)
-        self.ui.cancelButton.clicked.connect(self.ui.hide)
-
-    #radio button event start 
-    def NextButton(self):
-
-        if(self.ui.Method1.isChecked()): #Swap UI 보여주기 및 데이터 rendering
-            self.ui = uic.loadUi("./UI/Swap.ui") #insert your UI path
-            self.ui.show()
-            self.ui.ImportButton.hide()
-
-            """유니크 값 추출 후 테이블에 저장"""
-            uniqueIndex = self.before[self.SelectColumnName].unique().tolist()
-            uniqueIndex.sort()
-
-            self.ui.swapTable.setRowCount(len(uniqueIndex)) 
-            self.ui.swapTable.setHorizontalHeaderLabels(['before', 'after'])
-
-            for i in range(len(uniqueIndex)):
-                self.ui.swapTable.setItem(i,0,QTableWidgetItem(str(uniqueIndex[i])))
-
-            """선택한 컬럼의 데이터만 보여주기"""
-            self.ui.compareTable.setRowCount(self.rownum)
-            self.ui.compareTable.setHorizontalHeaderLabels([self.SelectColumnName, self.SelectColumnName])
-
-            for j in range(self.rownum):
-                self.ui.compareTable.setItem(j,0,QTableWidgetItem(str(self.before[self.SelectColumnName][j])))
-
-            #self.ui.runButton.clicked.connect(self.Swap)
-            self.ui.runButton.clicked.connect(lambda: self.Swap(uniqueIndex))
-            self.ui.finishButton.clicked.connect(lambda: self.finishButton("교환"))
-            self.ui.cancelButton.clicked.connect(self.ui.hide)
-            self.ui.backButton.clicked.connect(self.InitUI)
-
-        elif(self.ui.Method2.isChecked()): # Shuffle UI 보여주기 및 데이터 rendering
-            self.ui = uic.loadUi("./UI/Shuffle.ui") #insert your UI path
-            self.ui.show()
-
-            self.ui.BeforeData.setRowCount(self.rownum) #Set Column Count s    
-            self.ui.BeforeData.setHorizontalHeaderLabels(list(self.before.columns))
-
-            #for i in range(colnum):
-            for j in range(self.rownum): #rendering data (inputtable of Tab1)
-                self.ui.BeforeData.setItem(j,0,QTableWidgetItem(str(self.before[self.before.columns[0]][j])))
-
-            self.ui.runButton.clicked.connect(self.Shuffle)
-            self.ui.finishButton.clicked.connect(lambda: self.finishButton("재배열"))
-            self.ui.cancelButton.clicked.connect(self.ui.hide)
-            self.ui.backButton.clicked.connect(self.InitUI)
-        
-        elif(self.ui.Method3.isChecked()):
-            self.ui = uic.loadUi("./UI/CategoricalData.ui") #insert your UI path
-            self.ui.show()
-
-            self.ui.nextButton.clicked.connect(self.Categorical_next)
-            self.ui.cancelButton.clicked.connect(self.ui.hide)
-            self.ui.backButton.clicked.connect(self.InitUI)
-        
-        elif(self.ui.Method4.isChecked()): # 마스킹 및 삭제
-            self.ui = uic.loadUi("./UI/maskingData.ui") #insert your UI path
-            self.ui.show()
-
-            self.m_level = self.ui.maskingText.textChanged.connect(self.usedbyMasking)
-            self.m_index = self.ui.m_comboBox.currentIndexChanged.connect(self.usedbyMasking)
-
-            self.before = mainwindow.originData[self.SelectColumnName].to_frame() #pull one column and convert list
-            #rownum = len(self.before.index) # get row count
-            #colnum = len(self.before.columns) # get column count
-
-            self.ui.nextButton.clicked.connect(self.Masking)
-            self.ui.cancelButton.clicked.connect(self.ui.hide)
-            self.ui.backButton.clicked.connect(self.InitUI)
-        
-        elif(self.ui.Method5.isChecked()): # 통계값 처리 UI 및 박스 그래프 보여주기
-            self.ui = uic.loadUi("./UI/Aggregation.ui") #insert your UI path
-            self.ui.show()
-            self.RemoveFlag = False
-
-            #Rendering before box plot start
-            self.beforeFig = plt.Figure()
-            self.beforeCanvas = FigureCanvas(self.beforeFig) # figure - canvas 연동
-            self.ui.beforePlot.addWidget(self.beforeCanvas) #layout에 figure 삽입
-            
-            self.ax1 = self.beforeFig.add_subplot(1, 1, 1)  # fig를 1행 1칸으로 나누어 1칸안에 넣기
-            self.beforeCanvas.draw() 
-            self.AggregationbeforeGraph(mainwindow.originData[self.SelectColumnName])
-            #Rendering before box plot end
-
-            #Rendering after box plot start
-            self.afterFig = plt.Figure()
-            self.afterCanvas = FigureCanvas(self.afterFig) # figure - canvas 연동
-            self.ui.afterPlot.addWidget(self.afterCanvas) #layout에 figure 삽입
-
-            self.ax2 = self.afterFig.add_subplot(1, 1, 1)  # fig를 1행 1칸으로 나누어 1칸안에 넣기
-            self.afterCanvas.draw() 
-            #Rendering after box plot end
-
-            self.ui.columns.hide()
-            self.ui.group.hide()
-            self.ui.AllPart.currentIndexChanged.connect(self.ComboBoxSetting)
-            self.ui.columns.currentIndexChanged.connect(self.ColumnComboSetting)
-
-            self.ui.runButton.clicked.connect(self.Outlier)
-            self.ui.cancelButton.clicked.connect(self.ui.hide)
-            self.ui.backButton.clicked.connect(self.InitUI)
-        
-        elif(self.ui.Method6.isChecked()): # 라운딩 UI 및 before data 테이블 값 넣기
-            self.ui = uic.loadUi("./UI/Rounding.ui") #insert your UI path
-            self.ui.show()
-            self.ui.randomLabel.hide()
-            
-            self.ui.BeforeData.setRowCount(self.rownum) #Set Column Count s 
-            self.ui.BeforeData.setHorizontalHeaderLabels(list(self.before.columns))
-
-            for j in range(self.rownum): #rendering data (inputtable of Tab1)
-                self.ui.BeforeData.setItem(j,0,QTableWidgetItem(str(self.before[self.before.columns[0]][j])))
-
-            self.ui.runButton.clicked.connect(self.Rounding)
-            self.ui.finishButton.clicked.connect(lambda: self.finishButton("라운딩"))
-            self.ui.cancelButton.clicked.connect(self.ui.hide)
-            self.ui.backButton.clicked.connect(self.InitUI)
-        
-    #radio button event end 
-
-    def usedbyMasking(self):
-        self.m_level = self.ui.maskingText.toPlainText()
-        self.m_index = self.ui.m_comboBox.currentIndex()
-        try:
-            self.m_level = int(self.m_level)
-            if(self.m_level<1):
-                self.m_level/0
-        except Exception:
-            QtWidgets.QMessageBox.about(self, 'Error','Input can only be a number')
-        pass
-
-    #data swap start
-    def Swap(self, uniqueIndex):      
-        """swapTable의 after 값으로 바꾸기"""
-        self.after = self.before.copy()
-        self.swap_list = []
-        for i in range(len(uniqueIndex)):
-            self.after.loc[self.after[self.SelectColumnName]==str(uniqueIndex[i]), self.SelectColumnName] = self.ui.swapTable.item(i,1).text()
-            self.swap_list.append((str(uniqueIndex[i]) + "->" + self.ui.swapTable.item(i,1).text()))
-
-        for j in range(self.rownum):
-            self.ui.compareTable.setItem(j,1,QTableWidgetItem(str(self.after[self.SelectColumnName][j])))
-    #data swap end
-
-    #data shuffle(재배열) start          
-    def Shuffle(self):
-        self.shufflenumber = self.ui.shffleText.toPlainText()
-        try:  #숫자만 입력, 그 외 값은 예외처리
-            self.shufflenumber = int(self.shufflenumber)
-            if(self.shufflenumber<1):
-                self.shufflenumber/0
-        except Exception:
-            QtWidgets.QMessageBox.about(self, 'Error','Input can only be a number')
-        pass
-
-        tempList = self.before[self.before.columns[0]].values.tolist()
-        
-        for i in range(self.shufflenumber): #shuffle 
-    	    shuffle(tempList)
-
-        self.ui.AfterData.setRowCount(self.rownum) #Set Column Count s   
-        self.ui.AfterData.setHorizontalHeaderLabels(list(self.before.columns))
-        
-        for i in range(self.rownum): #rendering data
-            self.ui.AfterData.setItem(i,0,QTableWidgetItem(str(tempList[i])))
-        #self.after[self.SelectColumnName] = tempList
-        self.after = DataFrame(data={self.SelectColumnName: tempList})
-    #Shuffle() end
-
-    def Categorical_next(self):
-
-        if(self.ui.ordering.isChecked()):
-            self.ui = uic.loadUi("./UI/ordering_categorical.ui")
-            self.ui.show()
-        
-            self.original_uniq = self.before[self.SelectColumnName].unique()
-            self.ui.original.setRowCount(len(self.original_uniq))
-            self.ui.original.setHorizontalHeaderLabels(['values'])
-
-            self.ui.categorical.setHorizontalHeaderLabels(['categorical'])
-            self.original_uniq = list(self.original_uniq)
-              
-            self.groupEle = []
-            self.groupEle_ui = []
-
-            for v in range(len(self.original_uniq)):
-                self.ui.original.setItem(v,0,QTableWidgetItem(str(self.original_uniq[v])))
-            
-            self.ui.runButton.clicked.connect(self.Ordering_Categorical)
-            self.ui.cancelButton.clicked.connect(self.ui.hide)
-
-        elif(self.ui.intervals.isChecked()):
-            self.ui = uic.loadUi("./UI/intervals_categorical.ui") #insert your UI path
-            self.ui.show()
-
-            self.ui.original.setRowCount(self.rownum) #Set Column Count s 
-            self.ui.original.setHorizontalHeaderLabels(['original'])
-
-            for j in range(self.rownum): #rendering data (inputtable of Tab1)
-                self.ui.original.setItem(j,0,QTableWidgetItem(str(self.before[self.before.columns[0]][j])))
-
-            self.ui.runButton.clicked.connect(self.Intervals_Categorical)
-            self.ui.finishButton.clicked.connect(lambda: self.finishButton("연속 변수 범주화"))
-            self.ui.cancelButton.clicked.connect(self.ui.hide)
-    
-    def Ordering_Categorical(self):
-        self.orderValue = int(self.ui.orderText.toPlainText()) 
-    
-        start = 0
-        end = len(self.original_uniq)
-        print("end len :", end)
-       
-        for i in range(start, end+self.orderValue, self.orderValue):
-            groupEle_tmp = self.original_uniq[start : start + self.orderValue]
-            if groupEle_tmp != []:
-                self.groupEle.append(groupEle_tmp)
-                self.groupEle_tui = str(groupEle_tmp).replace("'","")
-                self.groupEle_ui.append(self.groupEle_tui)
-                print(self.groupEle_tui)
-            start = start + self.orderValue
-
-        self.ui.categorical.setRowCount(len(self.groupEle_ui))
-
-        for cat in range(len(self.groupEle_ui)):
-            self.ui.categorical.setItem(cat, 0, QTableWidgetItem(self.groupEle_ui[cat]))
-        print(self.groupEle)
-
-        self.ui.finishButton.clicked.connect(self.Ordering_Categorical_finish)
-
-    def Ordering_Categorical_finish(self):
-        self.after = self.before.copy()
-        self.o_Categorical = []
-        
-        for b in range(len(self.groupEle_ui)):
-            for z in range(len(self.groupEle[b])):
-                self.after.loc[self.after[self.SelectColumnName]==str((self.groupEle[b][z])), self.SelectColumnName] = str((self.groupEle_ui[b]))
-                for j in range(len(self.original_uniq)):
-                    if self.original_uniq[j] == self.groupEle[b][z]:
-                        self.o_Categorical.append(str(self.original_uniq[j]) + "  " + str(self.groupEle_ui[b]))
-        self.finishButton("순위 변수 범주화")
-
-    def Intervals_Categorical(self):
-        self.after = self.before.copy()
-
-        self.i_Categorical = []
-
-        self.ui.categorical.setRowCount(self.rownum) #Set Column Count s 
-        self.ui.categorical.setHorizontalHeaderLabels(['categorical'])
-
-        minValue = self.ui.minText.toPlainText()
-        maxValue = self.ui.maxText.toPlainText()
-        interValue = self.ui.interText.toPlainText()
-
-        try:
-            minValue = int(minValue)
-            maxValue = int(maxValue)
-            interValue = int(interValue)
-            if(minValue<1):
-                minValue/0
-            elif(maxValue<1):
-                maxValue/0
-            elif(interValue<1):
-                interValue/0
-        except Exception:
-            QtWidgets.QMessageBox.about(self, 'Error','Input can only be a number')
-        pass
-            
-        for j in range(self.rownum):
-            if self.before[self.before.columns[0]][j] < minValue:
-                self.after[self.after.columns[0]][j] = "<" + str(minValue)
-                self.i_Categorical.append(str(self.before[self.before.columns[0]][j]) + "  " + str(self.after[self.after.columns[0]][j]))
-                self.ui.categorical.setItem(j,0,QTableWidgetItem(str(self.after[self.after.columns[0]][j])))
-            elif self.before[self.before.columns[0]][j] >= maxValue:
-                self.after[self.after.columns[0]][j] = ">= " + str(maxValue)
-                self.i_Categorical.append(str(self.before[self.before.columns[0]][j]) + "  " + str(self.after[self.after.columns[0]][j]))
-                self.ui.categorical.setItem(j,0,QTableWidgetItem(str(self.after[self.after.columns[0]][j])))
-            else:
-                ii = int((maxValue-minValue)/interValue)
-                for i in range(ii):
-                    if self.before[self.before.columns[0]][j]-minValue >= i*interValue and self.before[self.before.columns[0]][j]-minValue < (i+1)*interValue:
-                        self.after[self.after.columns[0]][j] = "[" + str(minValue+i*interValue) + "," + str(minValue+(i+1)*interValue) + ")"
-                        self.i_Categorical.append(str(self.before[self.before.columns[0]][j]) + "  " + str(self.after[self.after.columns[0]][j]))
-                        self.ui.categorical.setItem(j,0,QTableWidgetItem(str(self.after[self.after.columns[0]][j])))
-             
-    def Masking(self):
-        self.ui = uic.loadUi("./UI/maskingData_review.ui") #insert your UI path
-        self.ui.show()
-        self.ui.maskingLevel.setRowCount(self.rownum) #Set Column Count s    
-        
-        self.after = self.before.copy()
-
-        before_uniq = self.before[self.before.columns[0]].unique()
-        
-        unique_len = []
-        after_uniq = before_uniq.copy()
-
-        for i in before_uniq:
-            unique_len.append(len(i)-1)
-
-        max_len = max(unique_len)
-
-        for j in range(self.rownum): #rendering data (inputtable of Tab1)
-            for idx,i in enumerate(unique_len):
-                if(self.m_index == 0): # * masking
-                    if i < max_len:
-                        while i != max_len:
-                            after_uniq[idx] = after_uniq[idx] + "*"
-                            i += 1
-                    else:
-                        after_uniq[idx] = after_uniq[idx][:i] + "*"
-
-                    after_uniq[idx] = after_uniq[idx][:max_len-self.m_level+1] + "*"*self.m_level
-
-                    if self.before[self.before.columns[0]][j] == before_uniq[idx]:
-                        self.after[self.after.columns[0]][j] = str(self.after[self.after.columns[0]][j]).replace(before_uniq[idx], after_uniq[idx])
-
-                elif(self.m_index == 1): # 0 masking
-                    if i < max_len:
-                        while i != max_len:
-                            after_uniq[idx] = after_uniq[idx] + "0"
-                            i += 1
-                    else:
-                        after_uniq[idx] = after_uniq[idx][:i] + "0"
-
-                    after_uniq[idx] = after_uniq[idx][:max_len-self.m_level+1] + "0"*self.m_level
-
-                    if self.before[self.before.columns[0]][j] == before_uniq[idx]:
-                        self.after[self.after.columns[0]][j] = str(self.after[self.after.columns[0]][j]).replace(before_uniq[idx], after_uniq[idx])
-
-                elif(self.m_index == 2): # ( ) masking
-                    if i < max_len:
-                        while i != max_len:
-                            after_uniq[idx] = after_uniq[idx] + " "
-                            i += 1
-                    else:
-                        after_uniq[idx] = after_uniq[idx][:i] + " "
-
-                    after_uniq[idx] = after_uniq[idx][:max_len-self.m_level+1] + " "*self.m_level
-
-                    if self.before[self.before.columns[0]][j] == before_uniq[idx]:
-                        self.after[self.after.columns[0]][j] = str(self.after[self.after.columns[0]][j]).replace(before_uniq[idx], after_uniq[idx])   
-            
-            self.ui.maskingLevel.setItem(j,0,QTableWidgetItem(str(self.before[self.before.columns[0]][j])))
-            self.ui.maskingLevel.setItem(j,1,QTableWidgetItem((self.after[self.after.columns[0]][j])))        
-
-        
-        #self.ui.backButton.clicked.connect(self.ui.hide)
-        self.ui.finishButton.clicked.connect(lambda: self.finishButton("마스킹"))
-        self.ui.cancelButton.clicked.connect(self.ui.hide)
-
-    #data Rounding start
-    def Rounding(self):
-        number = self.ui.roundText.toPlainText()
-        try: #숫자만 입력, 그 외 값은 예외처리
-            number = int(number)
-            if(number<1):
-                number/0
-        except Exception:
-            QtWidgets.QMessageBox.about(self, 'Error','Input can only be a number and bigger than 0')
-        pass
-
-        self.RoundingLevel = ""
-        index = self.ui.comboBox.currentIndex()
-        self.after = self.before.copy()
-
-        if(index == 0):# 올림
-            self.ui.randomLabel.hide()
-            self.RoundingLevel = self.RoundingLevel + str(pow(10, number-1)) + ", 올림"
-            for i in range(self.rownum):
-                self.after.loc[i, self.SelectColumnName] = ((self.after.loc[i, self.SelectColumnName]+9*pow(10, number-1))//pow(10, number))*pow(10, number) # change number, up
-                #after.loc[i, SelectColumnName] = ((after.loc[i, SelectColumnName]+9*10^n-1)//10^n)*10^n # change number, up
-        elif(index == 1):#내림
-            self.ui.randomLabel.hide()
-            self.RoundingLevel = self.RoundingLevel + str(pow(10, number-1)) + ",내림"
-            for i in range(self.rownum):
-                self.after.loc[i, self.SelectColumnName] = (self.after.loc[i, self.SelectColumnName]//pow(10, number))*pow(10, number) # change number, down
-                #after.loc[i, SelectColumnName] = (after.loc[i, SelectColumnName]//10^n-1)*10^n # change number, down
-        elif(index == 2):#5를 기준으로 up down, 반올림
-            self.ui.randomLabel.hide()
-            self.RoundingLevel = self.RoundingLevel + str(pow(10, number-1)) + ", 반올림"
-            for i in range(self.rownum):
-                self.after.loc[i, self.SelectColumnName] = ((self.after.loc[i, self.SelectColumnName]+5*pow(10, number-1))//pow(10, number))*pow(10, number) # change number, 4down, 5up
-                #after.loc[i, SelectColumnName] = ((after.loc[i, SelectColumnName]+5)//10)*10 # change number, 4down, 5up
-        elif(index == 3): #random 값을 기준으로 up down
-            randomN = random.randint(0,9)
-            self.ui.randomLabel.show() #show random value label
-            self.ui.randomLabel.setText("Value: " + str(randomN)) #랜덤 값 보여주기
-            self.RoundingLevel = self.RoundingLevel + str(pow(10, number-1)) + ", 랜덤(" + str(randomN) + ")"
-            for i in range(self.rownum):
-                self.after.loc[i, self.SelectColumnName] = ((self.after.loc[i, self.SelectColumnName]+(10-randomN))//pow(10, number))*pow(10, number) # change number, 4down, 5up
-                #after.loc[i, SelectColumnName] = ((after.loc[i, SelectColumnName]+(10-randomN))//10^n-1)*10^n # change number, 4down, 5up
-            
-        #rendering aftetable
-        self.ui.AfterData.setRowCount(self.rownum) #Set Column Count     
-        self.ui.AfterData.setHorizontalHeaderLabels(list(self.after.columns))
-
-        for i in range(self.rownum): #rendering data
-            self.ui.AfterData.setItem(i,0,QTableWidgetItem(str(self.after[self.after.columns[0]][i])))
-    
-    """if(DataFromTable[SelectColumnName].dtype == np.float64):
-            DataFromTable[SelectColumnName] = round(DataFromTable[SelectColumnName],1) # change number 4down, 5up
-            #DataFromTable[SelectColumnName] = DataFromTable[SelectColumnName].apply(np.ceil) # up
-            #DataFromTable[SelectColumnName] = DataFromTable[SelectColumnName].apply(np.floor) # down""" #float 처리, 지금 비사용        
-    #data Rounding end
-
-    #통계값 aggregation start
-    def Outlier(self):
-        self.after = self.before.copy() 
-        self.AggregationLevel = ""
-
-        #reference: https://stackoverflow.com/questions/23199796/detect-and-exclude-outliers-in-pandas-data-frame/31502974#31502974
-        q1 = self.after[self.SelectColumnName].quantile(0.25) #calculate q1
-        q3 = self.after[self.SelectColumnName].quantile(0.75) #calculate q3
-        iqr = q3-q1 #Interquartile range
-        fence_low  = q1-1.5*iqr 
-        fence_high = q3+1.5*iqr
-
-        #change 4분위수
-        index = self.ui.AllPart.currentIndex()
-        
-        normal = self.after.loc[(self.after[self.SelectColumnName] >= fence_low) & (self.after[self.SelectColumnName] <= fence_high)] #select not outlier data(normal data)
-        
-        if index == 0:
-            self.after = self.AllAggregation(self.after) #모든 값을 총계나 평균으로 변경            
-            self.AggregationafterGraph(self.after[self.SelectColumnName]) #Rendering after box plot
-            self.AggregationLevel = self.AggregationLevel + "ALL(" + str(self.ui.function.currentText()) + ")"
-        elif index == 1:
-            self.after = self.partAggregation(normal, self.after, fence_low, fence_high)  #이상치 값만 처리
-            self.AggregationafterGraph(self.after[self.SelectColumnName]) #Rendering after box plot
-            self.AggregationLevel = self.AggregationLevel + "PART(" + str(self.ui.function.currentText()) + ")"
-        elif index == 2:
-            self.after = mainwindow.originData.copy() 
-            self.after = self.partGroupAggregation(self.after)
-            base = str(self.ui.columns.currentText())
-            self.AggregationafterGraph(self.after.groupby(base)[self.SelectColumnName].apply(list))
-            self.AggregationLevel = (self.AggregationLevel + "GROUP(" + 
-                                    str(self.ui.function.currentText()) + "), " +
-                                    str(self.ui.group.currentText()) +
-                                    " of " +
-                                    str(self.ui.columns.currentText()))
-
-            
-
-        """ float로 변경될 경우, 반올림 후 int로 재변환"""
-        self.after[self.SelectColumnName]=round(self.after[self.SelectColumnName],0)
-        self.after[self.SelectColumnName] = self.after[self.SelectColumnName].astype(int)
-
-        if(self.RemoveFlag == True):
-            self.ui.finishButton.clicked.connect(lambda: self.finishButton("통계 처리 삭제"))
-        else:
-            self.ui.finishButton.clicked.connect(lambda: self.finishButton("통계 처리"))
-    #통계값 aggregation end
-
-    #aggregation ui에 있는 comboBox에 값 넣기
-    def ComboBoxSetting(self, index):
-        if index == 0: #한 컬럼만 처리 + 모두 하나의 값으로 통일
-            self.ui.columns.hide()
-            self.ui.group.hide()
-            self.ui.function.clear() 
-            self.ui.function.addItem("총합")
-            self.ui.function.addItem("평균값")
-            self.AggregationbeforeGraph(mainwindow.originData[self.SelectColumnName])
-        elif index == 1: #한 컬럼만 처리 + 이상치만 처리
-            self.ui.columns.hide()
-            self.ui.group.hide()
-            self.ui.function.clear() 
-            self.ui.function.addItem("평균값")
-            self.ui.function.addItem("최대값")
-            self.ui.function.addItem("최소값")
-            self.ui.function.addItem("중앙값")
-            self.ui.function.addItem("최빈값")
-            self.ui.function.addItem("삭제")
-            self.AggregationbeforeGraph(mainwindow.originData[self.SelectColumnName])
-        elif index == 2: #한 컬럼에서 일부만 처리 + 이상치만 처리
-            self.ui.function.clear() 
-            self.ui.function.addItem("평균값")
-            self.ui.function.addItem("중앙값")
-            self.ui.function.addItem("최빈값")
-            self.ui.function.addItem("삭제")
-            
-            self.ui.columns.show() #컬럼 이름 넣기(현재 선택한 컬럼 제외)
-            self.ui.columns.clear()
-            for i in mainwindow.originData.columns:
-                if i != self.SelectColumnName:
-                    self.ui.columns.addItem(i)
-
-            self.ui.group.show()
-            self.ui.group.clear() #선택한 컬럼에 유니크한 값만 뽑아서 comboBox에 추가
-            array = mainwindow.originData[str(self.ui.columns.currentText())].unique()
-            array.sort()
-            for i in range(len(array)):
-                self.ui.group.addItem(str(array[i]))
-
-
-    def ColumnComboSetting(self): # 컬럼별(그룹)일 때 group combobox 세팅
-        base = str(self.ui.columns.currentText())
-        if base:
-            self.AggregationbeforeGraph(mainwindow.originData.sort_values([self.SelectColumnName]).groupby(base)[self.SelectColumnName].apply(list))
-
-            self.ui.group.show()
-            self.ui.group.clear() #선택한 컬럼에 유니크한 값만 뽑아서 comboBox에 추가
-            array = mainwindow.originData[str(self.ui.columns.currentText())].unique()
-            array.sort()
-            for i in range(len(array)):
-                self.ui.group.addItem(str(array[i]))
-
-
-    #모든 값을 총계나 평균으로 변경
-    def AllAggregation(self, Outlier):
-        self.RemoveFlag = False
-        index = self.ui.function.currentIndex() 
-        if index == 0: #총합으로 통일
-            Outlier[self.SelectColumnName] = Outlier[self.SelectColumnName].sum()
-        elif index == 1: #평균으로 통일
-            Outlier[self.SelectColumnName] = Outlier[self.SelectColumnName].mean()
-        return Outlier
-
-    #이상치 값만 처리
-    def partAggregation(self, Normal, Outlier, low, high):
-        index = self.ui.function.currentIndex() 
-        if index == 0: #MEAN
-            self.RemoveFlag = False
-            Outlier.loc[(Outlier[self.SelectColumnName] < low) | (Outlier[self.SelectColumnName] > high)] = Normal[self.SelectColumnName].mean()
-        elif index == 1: #MAX
-            self.RemoveFlag = False
-            Outlier.loc[(Outlier[self.SelectColumnName] < low) | (Outlier[self.SelectColumnName] > high)] = Normal[self.SelectColumnName].max()
-        elif index == 2: #MIN
-            self.RemoveFlag = False
-            Outlier.loc[(Outlier[self.SelectColumnName] < low) | (Outlier[self.SelectColumnName] > high)] = Normal[self.SelectColumnName].min()
-        elif index == 3: #MEDIAN
-            self.RemoveFlag = False
-            Outlier.loc[(Outlier[self.SelectColumnName] < low) | (Outlier[self.SelectColumnName] > high)] = Normal[self.SelectColumnName].median()
-        elif index == 4: #MODE
-            self.RemoveFlag = False
-            mode = Normal[self.SelectColumnName].value_counts().idxmax() #최빈값
-            Outlier.loc[(Outlier[self.SelectColumnName] < low) | (Outlier[self.SelectColumnName] > high)] = mode
-        elif index == 5: #REMOVE
-            self.RemoveFlag = True
-            b_length = len(Outlier.index)
-            Outlier = Outlier.loc[(Outlier[self.SelectColumnName] >= low) & (Outlier[self.SelectColumnName] <= high)]
-            self.RemoveRowCount = b_length - len(Outlier.index)
-        return Outlier
-
-    #그룹화 후 이상치 값 선별 및 처리
-    def partGroupAggregation(self, result):
-        groupcol = str(self.ui.columns.currentText()) #그룹 기준 컬럼
-        groupvalue = str(self.ui.group.currentText())   #그룹 기준 값
-
-        Outlier = mainwindow.originData[mainwindow.originData[groupcol].isin([groupvalue])]
-        
-        q1 = Outlier[self.SelectColumnName].quantile(0.25) #calculate q1
-        q3 = Outlier[self.SelectColumnName].quantile(0.75) #calculate q3
-        iqr = q3-q1 #Interquartile range
-        low  = q1-1.5*iqr 
-        high = q3+1.5*iqr
-
-        list = []
-        Normal = Outlier.loc[(Outlier[self.SelectColumnName] >= low) & (Outlier[self.SelectColumnName] <= high)] #select normal data  
-        Outlier = Outlier.loc[(Outlier[self.SelectColumnName] < low) | (Outlier[self.SelectColumnName] > high)]
-        for row in Outlier.index: 
-            list.append(row)
-
-        index = self.ui.function.currentIndex() 
-        if index == 0: #MEAN    
-            self.RemoveFlag = False
-            for i in range(len(list)):
-                result[self.SelectColumnName][list[i]] = Normal[self.SelectColumnName].mean()
-        elif index == 1: #MEDIAN
-            self.RemoveFlag = False
-            for i in range(len(list)):
-                result[self.SelectColumnName][list[i]] =  Normal[self.SelectColumnName].median()
-        elif index == 2: #MODE
-            self.RemoveFlag = False
-            for i in range(len(list)):
-                mode = Normal[self.SelectColumnName].value_counts().idxmax() #최빈값
-                result[self.SelectColumnName][list[i]] =  mode
-        elif index == 3: #REMOVE
-            self.RemoveFlag = True
-            self.RemoveRowCount = len(list)
-            for i in range(len(list)):
-                result = result.drop(result.index[list[i]])
-        return result   
-
-    def AggregationbeforeGraph(self, data):
-        self.beforeFig.clear()
-        self.ax1 = self.beforeFig.add_subplot(1, 1, 1)  # fig를 1행 1칸으로 나누어 1칸안에 넣기
-        self.ax1.boxplot(data)
-        self.ax1.grid()
-        self.beforeCanvas.draw() 
-
-    def AggregationafterGraph(self, data):
-        self.afterFig.clear() #canvas clear
-        self.ax2 = self.afterFig.add_subplot(1, 1, 1)  # fig를 1행 1칸으로 나누어 1칸안에 넣기
-        self.ax2.boxplot(data)
-        self.ax2.grid()
-        self.afterCanvas.draw() 
-
-    #데이터 mainwindow.deData 및 methodTable 저장 및 UI 끄기
-    def finishButton(self, methodname):
-        #global mainwindow.deData, mainwindow.originData
-
-        mainwindow.deData[self.SelectColumnName] = self.after[self.SelectColumnName] #change values
-        self.ui.hide()
-        
-        if(methodname == "통계 처리 삭제"):
-            changednumber = self.RemoveRowCount
-            mainwindow.deData = mainwindow.deData.dropna(subset=[mainwindow.deData.columns[self.SelectColumn]]) #통계값에서 생기는 null 삭제 작업 필요
-            mainwindow.deData = mainwindow.deData.reset_index(drop=True)
-        else:
-            changednumber = self.calculateCahngeValue(self.before, self.after, self.SelectColumnName)
-        
-        print(mainwindow.deData)
-
-        #methodTable에 이미 비식별 메소드가 있다면 삭제
-        if(self.SelectColumnName in mainwindow.methodCol_List):
-            print("this is duplicated check")
-            mainwindow.ui.methodTable.removeRow(int(mainwindow.methodCol_List[self.SelectColumnName])) #컬럼이 저장된 행 삭제
-            for key, value in mainwindow.methodCol_List.items():
-                if value > mainwindow.methodCol_List[self.SelectColumnName]:
-                    mainwindow.methodCol_List[key] -= 1
-            del mainwindow.methodCol_List[self.SelectColumnName]  #딕셔너리에서 컬럼 삭제
-
-
-        if(methodname == "교환"):
-            self.methodTable_Box(self.SelectColumnName, methodname, self.swap_list, changednumber)
-        elif(methodname == "재배열"):
-            self.methodTable_Level(self.SelectColumnName, methodname,  ("Suffled " + str(self.shufflenumber)), changednumber)
-        elif(methodname == "연속 변수 범주화"):
-            self.methodTable_Box(self.SelectColumnName, methodname, self.i_Categorical, changednumber)
-        elif(methodname == "순위 변수 범주화"):
-            self.methodTable_Box(self.SelectColumnName, methodname, self.o_Categorical, changednumber)
-        elif(methodname == "마스킹"): 
-            self.methodTable_Level(self.SelectColumnName, methodname, ("level " + str(self.m_level)), changednumber)
-        elif(methodname == "통계 처리"):
-            self.methodTable_Level(self.SelectColumnName, methodname, self.AggregationLevel, changednumber)
-        elif(methodname == "통계 처리 삭제"):
-            self.methodTable_Level(self.SelectColumnName, methodname, self.AggregationLevel, changednumber)
-        elif (methodname == "라운딩"):
-            self.methodTable_Level(self.SelectColumnName, methodname, self.RoundingLevel, changednumber)
-
-        mainwindow.methodCol_List[self.SelectColumnName]  = mainwindow.ui.methodTable.rowCount()-1 #컬럼이 저장된 행 저장  
-        print(mainwindow.methodCol_List)
-
-
-    def methodTable_Level(self, colName, method, level, changeNumber):
-        mainwindow.ui.methodTable.insertRow(mainwindow.ui.methodTable.rowCount())
-        mainwindow.ui.methodTable.setItem(mainwindow.ui.methodTable.rowCount()-1, 0, QTableWidgetItem(str(colName))) #column name
-        mainwindow.ui.methodTable.setItem(mainwindow.ui.methodTable.rowCount()-1, 1, QTableWidgetItem(str(method))) #비식별 method
-        mainwindow.ui.methodTable.setItem(mainwindow.ui.methodTable.rowCount()-1, 2, QTableWidgetItem(str(level))) #detail
-        mainwindow.ui.methodTable.setItem(mainwindow.ui.methodTable.rowCount()-1, 3, QTableWidgetItem(str(changeNumber))) #영향받은 row 수 
- 
-
-    def methodTable_Box(self, colName, method, level_list, changeNumber):
-        levelcom = QComboBox() 
-        levelcom.addItems(level_list)
-
-        mainwindow.ui.methodTable.insertRow(mainwindow.ui.methodTable.rowCount())
-        mainwindow.ui.methodTable.setItem(mainwindow.ui.methodTable.rowCount()-1, 0, QTableWidgetItem(str(colName))) #column name
-        mainwindow.ui.methodTable.setItem(mainwindow.ui.methodTable.rowCount()-1, 1, QTableWidgetItem(str(method))) #비식별 method
-        mainwindow.ui.methodTable.setCellWidget(mainwindow.ui.methodTable.rowCount()-1, 2, levelcom)
-        mainwindow.ui.methodTable.setItem(mainwindow.ui.methodTable.rowCount()-1, 3, QTableWidgetItem(str(changeNumber))) #영향받은 row 수
-
-    def calculateCahngeValue(self, beforedata, afterdata, colname):
-        df = beforedata[colname] != afterdata[colname]
-        return (df == True).sum()  
-
-
 
 
 if __name__ == '__main__':

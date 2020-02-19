@@ -459,12 +459,21 @@
            <string>비식별 레벨 추천</string>
           </property>
           <layout class="QGridLayout" name="gridLayout_14">
-           <item row="1" column="1">
+           <item row="0" column="1">
             <widget class="QSplitter" name="splitter_9">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
              </property>
-             <widget class="QTableWidget" name="de_level_re_risk">
+             <widget class="QTableWidget" name="analysis_result">
+              <property name="sizeAdjustPolicy">
+               <enum>QAbstractScrollArea::AdjustToContents</enum>
+              </property>
+              <property name="editTriggers">
+               <set>QAbstractItemView::DoubleClicked</set>
+              </property>
+              <attribute name="horizontalHeaderDefaultSectionSize">
+               <number>200</number>
+              </attribute>
               <column>
                <property name="text">
                 <string>비식별 레벨</string>
@@ -478,7 +487,7 @@
               </column>
               <column>
                <property name="text">
-                <string>유용성 검증(1~5)</string>
+                <string>최소 정보 손실(수치형)</string>
                </property>
                <property name="font">
                 <font>
@@ -489,7 +498,7 @@
               </column>
               <column>
                <property name="text">
-                <string>재식별 위험도</string>
+                <string>최소 정보 손실(범주화)</string>
                </property>
                <property name="font">
                 <font>
@@ -498,11 +507,17 @@
                 </font>
                </property>
               </column>
-             </widget>
-             <widget class="MplWidget" name="inputGraph_3" native="true">
-              <property name="enabled">
-               <bool>true</bool>
-              </property>
+              <column>
+               <property name="text">
+                <string>재식별위험도평균</string>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+              </column>
              </widget>
             </widget>
            </item>
@@ -581,7 +596,7 @@
              </widget>
              <widget class="QTabWidget" name="tabWidget_2">
               <property name="currentIndex">
-               <number>1</number>
+               <number>0</number>
               </property>
               <widget class="QWidget" name="CorrelationGraph">
                <attribute name="title">
